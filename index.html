@@ -814,6 +814,7 @@ try { const t = localStorage.getItem('dash_theme'); if (t) document.documentElem
 function saveSession(s) {
   session = s;
   try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {}
+  if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} }
 }
 
 async function auth(path, body) {
@@ -1865,7 +1866,7 @@ setInterval(touchSeen, 15000);
 addEventListener('pagehide', touchSeen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { touchSeen(); return; }
-  if (lockIfStale()) renderLogin('עברו יותר מ-5 דקות – יש להתחבר מחדש.');
+  if (lockIfStale()) renderLogin('עברו יותר מ-5 דקות – יש להתחבר מחדש.', true);
   else touchSeen();
 });
 
@@ -1875,7 +1876,7 @@ function start() {
   if (hp.get('error_description')) { history.replaceState(null, '', location.pathname + location.search); renderLogin(hp.get('error_description')); return; }
   const locked = lockIfStale();
   touchSeen();
-  session ? load() : renderLogin(locked ? 'עברו יותר מ-5 דקות – יש להתחבר מחדש.' : undefined);
+  session ? load() : renderLogin(locked ? 'עברו יותר מ-5 דקות – יש להתחבר מחדש.' : undefined, !!locked);
 }
 start();
 </script>
