@@ -866,6 +866,7 @@ function renderLogin(msg, ok) {
     ${msg ? `<div class="err${ok ? ' ok' : ''}">${esc(msg)}</div>` : ''}
     <button class="btn pri" style="width:100%;padding:12px;font-size:15px">כניסה למערכת</button>
     <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--mut)">גרסה 23.11 – תיקון כניסה</div>
   </form>`;
   $('#lf').onsubmit = async e => {
     e.preventDefault();
