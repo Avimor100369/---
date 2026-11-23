@@ -1843,11 +1843,33 @@ async function openDetail(id) {
 
 $('#modal').onclick = e => { if (e.target.id === 'modal') e.target.classList.remove('open'); };
 
+/* נעילה אוטומטית: אם האתר נסגר / ברקע יותר מ-5 דקות – נדרשת סיסמה מחדש */
+const LOCK_MS = 5 * 60 * 1000;
+const seenAt = () => { try { return +localStorage.getItem('dash_seen') || 0; } catch (e) { return 0; } };
+const touchSeen = () => { try { if (session) localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} };
+function lockIfStale() {
+  if (session && Date.now() - seenAt() > LOCK_MS) {
+    saveSession(null);
+    try { localStorage.removeItem('dash_seen'); } catch (e) {}
+    return true;
+  }
+  return false;
+}
+setInterval(touchSeen, 15000);
+addEventListener('pagehide', touchSeen);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { touchSeen(); return; }
+  if (lockIfStale()) renderLogin('עברו יותר מ-5 דקות – יש להתחבר מחדש.');
+  else touchSeen();
+});
+
 function start() {
   const hp = new URLSearchParams(location.hash.replace(/^#/, ''));
   if (hp.get('type') === 'recovery' && hp.get('access_token')) { renderReset(hp.get('access_token')); return; }
   if (hp.get('error_description')) { history.replaceState(null, '', location.pathname + location.search); renderLogin(hp.get('error_description')); return; }
-  session ? load() : renderLogin();
+  const locked = lockIfStale();
+  touchSeen();
+  session ? load() : renderLogin(locked ? 'עברו יותר מ-5 דקות – יש להתחבר מחדש.' : undefined);
 }
 start();
 </script>
