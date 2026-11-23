@@ -370,9 +370,16 @@ main { max-width: 1220px; margin: 0 auto; padding: 24px 20px 48px; }
 }
 .badge.co { background: var(--pri-light); color: var(--pri); }
 .badge.gps { background: var(--ok-bg); color: var(--ok); }
+header { -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
+.stat { transition: transform .18s ease, box-shadow .18s ease; }
+.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(2, 132, 199, .35); outline-offset: 2px; }
+.role-pill { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px; background: var(--pri-light); color: var(--pri); font-size: 11px; font-weight: 800; }
+::selection { background: var(--pri-light); color: var(--pri); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .nc-chip { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg); padding: 2px 8px; border-radius: 6px; }
-.nc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.nc-actions a, .nc-actions button { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--tx); cursor: pointer; text-decoration: none; }
+.nc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.nc-actions a, .nc-actions button { font: inherit; font-size: 15px; font-weight: 700; padding: 11px 20px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--tx); cursor: pointer; text-decoration: none; flex: 1 1 140px; box-shadow: var(--shadow-sm, 0 1px 2px rgba(15,23,42,.06)); }
 .nc-actions a:hover, .nc-actions button:hover { background: var(--pri-light); }
 .badge.ph-cnt { background: var(--card-alt); border: 1px solid var(--line); color: var(--tx-sec); }
 .badge.lines-cnt { background: var(--warn-bg); color: var(--warn); }
@@ -786,7 +793,8 @@ const LABELS = {
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let session = null, reports = [], query = '';
+let session = null, reports = [], query = '', userRole = 'admin', userId = '';
+const ROLE_LABELS = { admin: 'מנהל מערכת', manager: 'מנהל', contractor: 'קבלן' };
 
 function showToast(msg) {
   const t = $('#toast');
@@ -898,7 +906,18 @@ create policy "dash delete" on public.reports for delete to authenticated using 
 create policy "dash list photos" on storage.objects for select to authenticated using (bucket_id='report-photos');
 create policy "dash delete photos" on storage.objects for delete to authenticated using (bucket_id='report-photos');`;
 
+async function loadRole() {
+  // אם טבלת profiles עדיין לא קיימת – ההתנהגות נשארת כמו קודם (admin)
+  try {
+    const sub = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub;
+    userId = sub;
+    const r = await api(`${SB}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(sub)}`);
+    if (r.ok) { const j = await r.json(); if (j[0] && j[0].role) userRole = j[0].role; }
+  } catch (e) {}
+}
+
 async function load() {
+  await loadRole();
   $('#app').innerHTML = '<div class="msg">טוען נתונים ודיווחים מהשרת…</div>';
   let r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=2000`);
   if (r.status === 400) r = await api(`${SB}/rest/v1/reports?select=*&limit=2000`);
@@ -924,6 +943,31 @@ function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } 
 function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return g && g.latitude != null && g.longitude != null ? g : null; }
 function ncText(g) { return g ? `${(+g.latitude).toFixed(6)}, ${(+g.longitude).toFixed(6)}` : ''; }
 function copyNC(t) { navigator.clipboard.writeText(t).then(() => showToast('הנ.צ הועתק: ' + t)).catch(() => { prompt('העתק נ.צ:', t); }); }
+const UNIT_WORD = '(גוב|גובים|עמוד|עמודים|manhole|pole)';
+const UNIT_NUM_RE = new RegExp("((מס['׳]?|מספר|num|no\\.?|#)\\s*" + UNIT_WORD + ")|(" + UNIT_WORD + "\\s*(מס['׳]?|מספר|num|no\\.?|#))", 'i');
+const UNIT_EXACT_RE = new RegExp('^\\s*' + UNIT_WORD + '\\s*$', 'i');
+const unitKeyOk = k => UNIT_NUM_RE.test(k) || UNIT_EXACT_RE.test(k);
+function unitOf(r, p) {
+  const found = [];
+  const add = (key, val) => {
+    if (val == null || typeof val === 'object') return;
+    const v = String(val).trim();
+    if (!v || v === '—') return;
+    const kind = /עמוד|pole/i.test(key) ? 'עמוד' : 'גוב';
+    if (!found.some(f => f.kind === kind)) found.push({ kind, num: v });
+  };
+  if (p) for (const k of Object.keys(p)) if (k !== 'url' && k !== 'category' && unitKeyOk(k)) add(k, p[k]);
+  const dt = parseJ(r.details);
+  if (dt && typeof dt === 'object') for (const k of Object.keys(dt)) if (k !== 'lines' && k !== 'gps' && unitKeyOk(k)) add(k, dt[k]);
+  for (const k of Object.keys(r)) if (!['details', 'photos'].includes(k) && unitKeyOk(k)) add(k, r[k]);
+  for (const [k, v] of linesOf(r)) if (UNIT_NUM_RE.test(String(k))) add(String(k), joinV(v));
+  return found.length ? { text: found.map(f => `${f.kind} ${f.num}`).join(' · ') } : null;
+}
+function photoName(r, p) {
+  const base = (p && p.category) || 'תיעוד כללי';
+  const u = unitOf(r, p);
+  return u ? `${base} · ${u.text}` : base;
+}
 function linesOf(r) { const dt = parseJ(r.details); return dt && Array.isArray(dt.lines) ? dt.lines.filter(Array.isArray) : []; }
 function photosOf(r) { const p = parseJ(r.photos); return Array.isArray(p) ? p.filter(x => x && x.url) : []; }
 const today = () => new Date().toISOString().slice(0, 10);
@@ -1015,6 +1059,7 @@ async function downloadFilteredZip(rows) {
         company: (r.company || 'ללא_חברה').replace(/[\\/:*?"<>|]/g, '_'),
         project: (r.project || 'ללא_פרויקט').replace(/[\\/:*?"<>|]/g, '_'),
         category: (p.category || 'כללי').replace(/[\\/:*?"<>|]/g, '_'),
+        label: photoName(r, p).replace(/[\\/:*?"<>|]/g, '_').replace(/\s*·\s*/g, '_').replace(/\s+/g, '_'),
         date: r.date || 'ללא_תאריך',
         report_id: r.report_id,
         idx: idx + 1
@@ -1041,7 +1086,7 @@ async function downloadFilteredZip(rows) {
         const blob = await res.blob();
         const ext = (blob.type && blob.type.includes('png')) ? 'png' : 'jpg';
         const folderPath = `${item.company}/${item.project}/${item.category}`;
-        const fileName = `${item.date}_${item.report_id}_${item.idx}.${ext}`;
+        const fileName = `${item.label}_${item.date}_${item.report_id}_${item.idx}.${ext}`;
         zip.folder(folderPath).file(fileName, blob);
         okCount++;
       } catch (e) {}
@@ -1093,7 +1138,7 @@ function renderShell(extra = '') {
           <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
         </h1>
       </div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)}</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)">🌓</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">🔄 רענון</button>
       <button class="btn bad" id="lo">יציאה</button>
@@ -1126,6 +1171,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tg">🖼️ גלריית תמונות חכמה</button>
           <button class="btn" id="tm">📍 מפת עבודות</button>
           <button class="btn" id="ta">📈 סיכום ובקרה</button>
+          ${userRole === 'admin' ? '<button class="btn" id="tu">👥 משתמשים</button>' : ''}
         </div>
         <div class="spacer"></div>
         <button class="btn ok" id="e1">📊 ייצוא אקסל מעוצב (.xlsx)</button>
@@ -1156,6 +1202,7 @@ function renderShell(extra = '') {
   $('#tg').onclick = () => { view = 'gallery'; refresh(); };
   $('#tm').onclick = () => { view = 'map'; refresh(); };
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
+  if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
   $('#e1').onclick = exportExcelStyled;
   refresh();
 }
@@ -1194,6 +1241,7 @@ function refresh() {
   $('#tg').classList.toggle('pri', view === 'gallery');
   $('#tm').classList.toggle('pri', view === 'map');
   $('#ta').classList.toggle('pri', view === 'analytics');
+  if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
 
   if (view !== 'map') {
     mapTok++;
@@ -1201,9 +1249,57 @@ function refresh() {
   }
 
   if (view === 'map') renderMap(rows);
+  else if (view === 'users' && userRole === 'admin') renderUsers();
   else if (view === 'gallery') renderGalleryHub(rows);
   else if (view === 'analytics') renderAnalytics(rows);
   else renderList(rows);
+}
+
+async function renderUsers() {
+  $('#list').innerHTML = '<div class="msg">טוען משתמשים…</div>';
+  const r = await api(`${SB}/rest/v1/profiles?select=*&order=created_at.asc`);
+  if (!r.ok) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון משתמשים. ודא שהרצת את supabase_setup.sql.</div>'; return; }
+  const users = await r.json();
+  const opts = cur => Object.entries(ROLE_LABELS).map(([k, l]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${l}</option>`).join('');
+  $('#list').innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)">
+      <b>➕ פתיחת משתמש חדש</b>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <input id="nu-email" type="email" dir="ltr" placeholder="אימייל" style="flex:2 1 200px">
+        <input id="nu-pass" type="text" dir="ltr" placeholder="סיסמה (לפחות 6 תווים)" style="flex:1 1 160px">
+        <button class="btn pri" id="nu-add">צור משתמש</button>
+      </div>
+      <small style="color:var(--mut)">המשתמש נוצר כ"קבלן" וללא גישה לדיווחים עד שתגדיר לו תפקיד / שם קבלן כאן למטה.</small>
+    </div>
+    <div style="overflow-x:auto"><table class="work-table">
+      <thead><tr><th>אימייל</th><th>תפקיד</th><th>שם קבלן (כפי שמופיע בדיווחים)</th><th></th></tr></thead>
+      <tbody>${users.map(u => `<tr>
+        <td style="direction:ltr;text-align:right">${esc(u.email || '')}${u.id === userId ? ' <span class="role-pill">אתה</span>' : ''}</td>
+        <td><select data-role="${esc(u.id)}"${u.id === userId ? ' disabled title="לא ניתן לשנות את התפקיד של עצמך"' : ''}>${opts(u.role)}</select></td>
+        <td><input data-cn="${esc(u.id)}" value="${esc(u.contractor_name || '')}" placeholder="רק לתפקיד קבלן"></td>
+        <td><button class="btn sm pri" data-save="${esc(u.id)}">שמירה</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+
+  document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.save;
+    const role = document.querySelector(`[data-role="${id}"]`).value;
+    const cn = document.querySelector(`[data-cn="${id}"]`).value.trim();
+    const body = { role, contractor_name: cn || null };
+    const d = await api(`${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) });
+    const j = d.ok ? await d.json() : [];
+    showToast(j.length ? 'ההרשאה נשמרה' : 'השמירה נכשלה – בדוק הרשאות');
+  });
+
+  $('#nu-add').onclick = async () => {
+    const email = $('#nu-email').value.trim(), password = $('#nu-pass').value;
+    if (!email || password.length < 6) { showToast('יש להזין אימייל וסיסמה של 6 תווים לפחות'); return; }
+    const res = await fetch(`${SB}/auth/v1/signup`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(j.msg || j.error_description || 'יצירת המשתמש נכשלה'); return; }
+    showToast('המשתמש נוצר. אם נדרש אישור אימייל – הוא יקבל הודעה.');
+    setTimeout(renderUsers, 900);
+  };
 }
 
 function renderList(rows) {
@@ -1243,6 +1339,7 @@ function renderGalleryHub(rows) {
       allItems.push({
         url: p.url,
         category: p.category || 'תיעוד כללי',
+        label: photoName(r, p),
         company: r.company || 'ללא שיוך חברה',
         project: r.project || 'ללא שם פרויקט',
         contractor: r.contractor_name || '',
@@ -1332,12 +1429,12 @@ function renderGalleryHub(rows) {
 }
 
 function renderHubPhotoCard(i) {
-  const safeTitle = `${i.company} | ${i.project} - ${i.category}`;
+  const safeTitle = `${i.company} | ${i.project} - ${i.label || i.category}`;
   return `
     <div class="photo-card">
       <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')">
       <div class="hub-photo-meta" title="${esc(safeTitle)} | ${esc(i.contractor)} (${esc(i.date)})">
-        <b>${esc(i.category)}</b> · ${esc(i.date)}
+        <b>${esc(i.label || i.category)}</b> · ${esc(i.date)}
       </div>
       <div class="photo-actions">
         <button onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')" title="הגדל">🔍 הצג</button>
@@ -1492,34 +1589,44 @@ function exportExcelStyled() {
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
-  const lat = g => g ? +(+g.latitude).toFixed(6) : '';
-  const lon = g => g ? +(+g.longitude).toFixed(6) : '';
+  const scalar = v => (v && typeof v === 'object') ? (Array.isArray(v) ? v.join(', ') : JSON.stringify(v)) : (v ?? '');
 
-  // גליון 1 – דיווחים: שורה אחת לכל דיווח (ללא טקסט מחובר של סעיפים)
-  const s1 = [['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט', 'מס׳ סעיפים', 'מס׳ תמונות']];
+  // כל שדות המידע הנוספים של הדיווח (מעבר לשדות הבסיס) – נאספים אוטומטית
+  const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
+  const skip = new Set(['id', 'photos', 'details', 'created_at', ...baseKeys]);
+  const extraKeys = [];
+  const addExtra = k => { if (!extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
   rows.forEach(r => {
-    const g = gpsOf(r);
-    s1.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
-      g ? ncText(g) : 'ללא מיקום', lat(g), lon(g), mapLink(g), linesOf(r).length, photosOf(r).length]);
+    Object.keys(r).forEach(k => { if (!skip.has(k) && r[k] != null && r[k] !== '') addExtra(k); });
+    const dt = parseJ(r.details);
+    if (dt && typeof dt === 'object') Object.keys(dt).forEach(k => { if (k !== 'lines' && k !== 'gps' && dt[k] != null && dt[k] !== '') addExtra('details.' + k); });
   });
-  const w1 = XLSX.utils.aoa_to_sheet(s1);
-  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 26, 14, 14, 9, 11, 11],
-    { linkCols: [10], centerCols: [1, 7, 11, 12], coordCols: [8, 9], ltrCols: [7], numCols: [] });
-  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
+  const extraVal = (r, k) => {
+    if (k.startsWith('details.')) { const dt = parseJ(r.details); return scalar(dt && dt[k.slice(8)]); }
+    return scalar(r[k]);
+  };
+  const extraLabel = k => LABELS[k] || k.replace(/^details\./, '');
+  const fmtCreated = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString('he-IL'); };
 
-  // גליון 2 – סעיפי עבודה: שורה נפרדת לכל סעיף
-  const s2 = [['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'נ.צ', 'סעיף / סוג עבודה', 'כמות / ערך']];
+  // גליון ראשי: טבלה אחת ארוכה – שורה לכל סעיף עבודה, כל המידע, והמיקום בסוף
+  const head = ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד',
+    ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', 'סעיף / סוג עבודה', 'כמות / ערך',
+    'נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט'];
+  const s1 = [head];
   const totals = new Map();
   rows.forEach(r => {
     const g = gpsOf(r);
-    const base = [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '', g ? ncText(g) : ''];
+    const u = unitOf(r, null);
+    const base = [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
+      u ? u.text : '', ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at)];
+    const loc = [g ? ncText(g) : 'ללא מיקום', g ? +(+g.latitude).toFixed(6) : '', g ? +(+g.longitude).toFixed(6) : '', mapLink(g)];
     const ls = linesOf(r);
-    if (!ls.length) { s2.push([...base, '—', '']); return; }
+    if (!ls.length) { s1.push([...base, '—', '', ...loc]); return; }
     ls.forEach(([k, v]) => {
       const val = joinV(v);
       const n = Number(val);
       const isNum = val !== '' && !isNaN(n);
-      s2.push([...base, k || '', isNum ? n : val]);
+      s1.push([...base, k || '', isNum ? n : val, ...loc]);
       const key = String(k || '—');
       const t = totals.get(key) || { count: 0, sum: 0, hasNum: false, reports: new Set() };
       t.count++; t.reports.add(r.report_id);
@@ -1527,24 +1634,26 @@ function exportExcelStyled() {
       totals.set(key, t);
     });
   });
-  const w2 = XLSX.utils.aoa_to_sheet(s2);
-  styleWorksheet(w2, [16, 13, 16, 18, 24, 14, 24, 26, 32, 18],
-    { groupCol: 0, centerCols: [1, 7], ltrCols: [7], numCols: [9] });
-  XLSX.utils.book_append_sheet(wb, w2, 'סעיפי עבודה');
+  const nE = extraKeys.length;
+  const cItem = 9 + nE, cQty = cItem + 1, cNC = cQty + 1, cLat = cNC + 1, cLon = cLat + 1, cMap = cLon + 1;
+  const w1 = XLSX.utils.aoa_to_sheet(s1);
+  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 16, ...extraKeys.map(() => 18), 18, 32, 14, 26, 14, 14, 9],
+    { linkCols: [cMap], groupCol: 0, centerCols: [1, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: [cQty] });
+  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים וסעיפי עבודה');
 
-  // גליון 3 – סיכום כמויות לפי סעיף (לבדיקת התחשבנות)
+  // גליון סיכום כמויות לפי סעיף
   const s3 = [['סעיף / סוג עבודה', 'מס׳ דיווחים', 'מס׳ הופעות', 'סה״כ כמות']];
   [...totals].sort((a, b) => a[0].localeCompare(b[0], 'he')).forEach(([k, t]) => s3.push([k, t.reports.size, t.count, t.hasNum ? t.sum : '']));
   const w3 = XLSX.utils.aoa_to_sheet(s3);
   styleWorksheet(w3, [36, 14, 14, 16], { numCols: [1, 2, 3] });
   XLSX.utils.book_append_sheet(wb, w3, 'סיכום סעיפים');
 
-  // גליון 4 – אינדקס תמונות
-  const s4 = [['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'קטגוריית תמונה', 'קישור']];
-  rows.forEach(r => photosOf(r).forEach(p => s4.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', p.category || 'תיעוד כללי', p.url])));
+  // גליון אינדקס תמונות – שם התמונה כולל מספר קלוז׳ר / ארונית
+  const s4 = [['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'שם התמונה', 'קישור']];
+  rows.forEach(r => photosOf(r).forEach(p => s4.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', photoName(r, p), p.url])));
   if (s4.length > 1) {
     const w4 = XLSX.utils.aoa_to_sheet(s4);
-    styleWorksheet(w4, [16, 13, 16, 18, 24, 22, 10], { linkCols: [6], groupCol: 0, centerCols: [1] });
+    styleWorksheet(w4, [16, 13, 16, 18, 24, 34, 10], { linkCols: [6], groupCol: 0, centerCols: [1] });
     XLSX.utils.book_append_sheet(wb, w4, 'אינדקס תמונות');
   }
 
@@ -1644,7 +1753,7 @@ async function openDetail(id) {
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
         <button class="btn" id="cl">סגירה</button>
       </div>
-      <button class="btn bad" id="del">🗑️ מחיקת דיווח</button>
+      ${userRole === 'admin' ? '<button class="btn bad" id="del">🗑️ מחיקת דיווח</button>' : ''}
     </div>
   `;
 
@@ -1662,13 +1771,13 @@ async function openDetail(id) {
     navigator.clipboard.writeText(summaryText).then(() => showToast('פרטי הדוח הועתקו ללוח לשליחה בוואטסאפ/מייל'));
   };
 
-  let items = (Array.isArray(parseJ(r.photos)) ? parseJ(r.photos) : []).filter(x => x && x.url).map(x => ({ cat: x.category || '', url: x.url }));
+  let items = (Array.isArray(parseJ(r.photos)) ? parseJ(r.photos) : []).filter(x => x && x.url).map(x => ({ cat: photoName(r, x), url: x.url }));
   const names = await listPhotos(id);
   if (!items.length) items = names.map(n => ({ cat: '', url: photoUrl(id, n) }));
 
   const groups = new Map();
   items.forEach(i => {
-    const c = i.cat || 'תיעוד כללי';
+    const c = i.cat || photoName(r, null);
     if (!groups.has(c)) groups.set(c, []);
     groups.get(c).push(i);
   });
@@ -1719,7 +1828,7 @@ async function openDetail(id) {
     setTimeout(() => window.print(), 350);
   };
 
-  $('#del').onclick = async () => {
+  if ($('#del')) $('#del').onclick = async () => {
     if (!confirm('למחוק את הדיווח ואת כל התמונות שלו לצמיתות?')) return;
     const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
     const gone = d.ok ? await d.json() : [];
