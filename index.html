@@ -1594,6 +1594,7 @@ function exportExcelStyled() {
   if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
   if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
 
+  const workLines = r => linesOf(r).filter(([k]) => !UNIT_NUM_RE.test(String(k)));  // מס׳ גוב/עמוד מופיע בעמודה משלו
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
@@ -1616,38 +1617,43 @@ function exportExcelStyled() {
   const extraLabel = k => LABELS[k] || k.replace(/^details\./, '');
   const fmtCreated = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString('he-IL'); };
 
-  // גליון ראשי: טבלה אחת ארוכה – שורה לכל סעיף עבודה, כל המידע, והמיקום בסוף
-  const head = ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד',
-    ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', 'סעיף / סוג עבודה', 'כמות / ערך',
-    'נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט'];
-  const s1 = [head];
-  const totals = new Map();
-  rows.forEach(r => {
-    const g = gpsOf(r);
-    const u = unitOf(r, null);
-    const base = [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
-      u ? u.text : '', ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at)];
-    const loc = [g ? ncText(g) : 'ללא מיקום', g ? +(+g.latitude).toFixed(6) : '', g ? +(+g.longitude).toFixed(6) : '', mapLink(g)];
-    const ls = linesOf(r);
-    if (!ls.length) { s1.push([...base, '—', '', ...loc]); return; }
-    ls.forEach(([k, v]) => {
-      const val = joinV(v);
-      const n = Number(val);
-      const isNum = val !== '' && !isNaN(n);
-      s1.push([...base, k || '', isNum ? n : val, ...loc]);
-      const key = String(k || '—');
-      const t = totals.get(key) || { count: 0, sum: 0, hasNum: false, reports: new Set() };
+  const unitOfRow = r => { const u = unitOf(r, null); return u ? u.text : ''; };
+  const baseCells = r => [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
+    unitOfRow(r), ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at)];
+  const baseHead = ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד', ...extraKeys.map(extraLabel), 'זמן קליטה במערכת'];
+  const locHead = ['נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט'];
+  const locCells = r => { const g = gpsOf(r); return [g ? ncText(g) : 'ללא מיקום', g ? +(+g.latitude).toFixed(6) : '', g ? +(+g.longitude).toFixed(6) : '', mapLink(g)]; };
+  const nE = extraKeys.length, cStart = 9 + nE;
+
+  // איסוף סעיפים: כל סעיף = עמודה; אם אותו סעיף חוזר באותו דיווח – עמודה נוספת (כבל, כבל (2)…)
+  const totals = new Map(), itemNames = [], maxOcc = new Map();
+  const perReport = rows.map(r => {
+    const m = new Map(), cnt = new Map();
+    workLines(r).forEach(([k, v]) => {
+      const name = String(k || '—'), val = joinV(v), n = Number(val), isNum = val !== '' && !isNaN(n);
+      const c = (cnt.get(name) || 0) + 1; cnt.set(name, c);
+      if (!itemNames.includes(name)) itemNames.push(name);
+      maxOcc.set(name, Math.max(maxOcc.get(name) || 0, c));
+      m.set(name + '\u0000' + c, isNum ? n : val);
+      const t = totals.get(name) || { count: 0, sum: 0, hasNum: false, reports: new Set() };
       t.count++; t.reports.add(r.report_id);
       if (isNum) { t.sum += n; t.hasNum = true; }
-      totals.set(key, t);
+      totals.set(name, t);
     });
+    return m;
   });
-  const nE = extraKeys.length;
-  const cItem = 9 + nE, cQty = cItem + 1, cNC = cQty + 1, cLat = cNC + 1, cLon = cLat + 1, cMap = cLon + 1;
+  const itemCols = [];
+  itemNames.forEach(nm => { for (let c = 1; c <= maxOcc.get(nm); c++) itemCols.push({ key: nm + '\u0000' + c, label: c === 1 ? nm : `${nm} (${c})` }); });
+
+  // גליון 1 – דיווחים: שורה אחת לכל דיווח, כל ערך בעמודה משלו, המיקום בסוף
+  const nI = itemCols.length;
+  const s1 = [[...baseHead, ...itemCols.map(c => c.label), ...locHead]];
+  rows.forEach((r, i) => s1.push([...baseCells(r), ...itemCols.map(c => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''), ...locCells(r)]));
+  const cNC = cStart + nI, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
   const w1 = XLSX.utils.aoa_to_sheet(s1);
-  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 16, ...extraKeys.map(() => 18), 18, 32, 14, 26, 14, 14, 9],
-    { linkCols: [cMap], groupCol: 0, centerCols: [1, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: [cQty] });
-  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים וסעיפי עבודה');
+  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 16, ...extraKeys.map(() => 18), 18, ...itemCols.map(c => Math.min(26, Math.max(12, c.label.length + 3))), 26, 14, 14, 9],
+    { linkCols: [cMap], centerCols: [1, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: itemCols.map((_, i) => cStart + i) });
+  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
 
   // גליון סיכום כמויות לפי סעיף
   const s3 = [['סעיף / סוג עבודה', 'מס׳ דיווחים', 'מס׳ הופעות', 'סה״כ כמות']];
