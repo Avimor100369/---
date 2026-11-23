@@ -370,6 +370,10 @@ main { max-width: 1220px; margin: 0 auto; padding: 24px 20px 48px; }
 }
 .badge.co { background: var(--pri-light); color: var(--pri); }
 .badge.gps { background: var(--ok-bg); color: var(--ok); }
+.nc-chip { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg); padding: 2px 8px; border-radius: 6px; }
+.nc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.nc-actions a, .nc-actions button { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--tx); cursor: pointer; text-decoration: none; }
+.nc-actions a:hover, .nc-actions button:hover { background: var(--pri-light); }
 .badge.ph-cnt { background: var(--card-alt); border: 1px solid var(--line); color: var(--tx-sec); }
 .badge.lines-cnt { background: var(--warn-bg); color: var(--warn); }
 
@@ -918,6 +922,8 @@ let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0
 
 function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
 function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return g && g.latitude != null && g.longitude != null ? g : null; }
+function ncText(g) { return g ? `${(+g.latitude).toFixed(6)}, ${(+g.longitude).toFixed(6)}` : ''; }
+function copyNC(t) { navigator.clipboard.writeText(t).then(() => showToast('הנ.צ הועתק: ' + t)).catch(() => { prompt('העתק נ.צ:', t); }); }
 function linesOf(r) { const dt = parseJ(r.details); return dt && Array.isArray(dt.lines) ? dt.lines.filter(Array.isArray) : []; }
 function photosOf(r) { const p = parseJ(r.photos); return Array.isArray(p) ? p.filter(x => x && x.url) : []; }
 const today = () => new Date().toISOString().slice(0, 10);
@@ -1220,9 +1226,7 @@ function renderList(rows) {
       <div class="id-row">
         <span style="direction:ltr;font-family:monospace;font-weight:600">#${esc(r.report_id)}</span>
         ${locStr ? `<span>• 📍 ${esc(locStr)}</span>` : ''}
-        <div style="margin-right:auto">
-          <button class="btn sm" onclick="event.stopPropagation(); downloadSingleReport('${esc(r.report_id)}')" title="הורדת דיווח זה למחשב">📥 הורדת משימה</button>
-        </div>
+        ${gpsOf(r) ? `<span class="nc-chip" title="נקודת ציון">🧭 נ.צ ${esc(ncText(gpsOf(r)))}</span>` : ''}
       </div>
     </div>`;
   }).join('') : '<div class="empty">לא נמצאו דיווחים התואמים לחיפוש או לסינון הנוכחי</div>';
@@ -1420,6 +1424,7 @@ async function renderMap(rows) {
       <b style="font-size:14px;color:#0f4c81">${esc(r.project || 'דיווח')}</b><br>
       <span style="font-size:12px;font-weight:700">${esc(r.company || '')}</span><br>
       <span style="color:#64748b;font-size:12px">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span><br>
+      <span style="direction:ltr;unicode-bidi:embed;font-family:monospace;font-size:12px;color:#059669;font-weight:700">🧭 ${esc(ncText(g))}</span><br>
       <div style="margin-top:8px;display:flex;gap:6px">
         <button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600">פתיחת דיווח</button>
         <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" style="padding:5px 9px;background:#f1f5f9;border-radius:6px;text-decoration:none;color:#0f172a;font-weight:600">ניווט ↗</a>
@@ -1431,10 +1436,12 @@ async function renderMap(rows) {
   mapObj.on('popupopen', e => { const b = e.popup.getElement().querySelector('[data-open]'); if (b) b.onclick = () => openDetail(b.dataset.open); });
 }
 
-/* Executive Styled Multi-Sheet Excel (.xlsx) Export with Real Cell Styling */
+/* Executive Styled Multi-Sheet Excel (.xlsx) Export – one row per work item, no merged text */
 const joinV = v => Array.isArray(v) ? v.join(', ') : (v ?? '');
 
-function styleWorksheet(ws, colWidths, linkCols = []) {
+const XB = c => ({ style: 'thin', color: { rgb: c } });
+function styleWorksheet(ws, colWidths, opts = {}) {
+  const { linkCols = [], groupCol = null, centerCols = [], ltrCols = [], coordCols = [], numCols = [] } = opts;
   ws['!views'] = [{ rightToLeft: true }];
   ws['!cols'] = colWidths.map(w => ({ wch: w }));
   if (!ws['!ref']) return;
@@ -1444,146 +1451,101 @@ function styleWorksheet(ws, colWidths, linkCols = []) {
   const headerStyle = {
     font: { name: 'Arial', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
     fill: { fgColor: { rgb: '0F4C81' } },
-    alignment: { horizontal: 'right', vertical: 'center', wrapText: true },
-    border: {
-      top: { style: 'thin', color: { rgb: '0A365C' } },
-      bottom: { style: 'medium', color: { rgb: '0A365C' } },
-      left: { style: 'thin', color: { rgb: '0A365C' } },
-      right: { style: 'thin', color: { rgb: '0A365C' } }
-    }
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: { top: XB('0A365C'), bottom: { style: 'medium', color: { rgb: '0A365C' } }, left: XB('0A365C'), right: XB('0A365C') }
   };
 
+  let group = 0, prevKey = null;
   for (let R = range.s.r; R <= range.e.r; ++R) {
+    if (R > 0 && groupCol !== null) {
+      const gc = ws[XLSX.utils.encode_cell({ r: R, c: groupCol })];
+      const key = gc ? String(gc.v) : '';
+      if (prevKey !== null && key !== prevKey) group++;
+      prevKey = key;
+    }
     for (let C = range.s.c; C <= range.e.c; ++C) {
       const addr = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell = ws[addr];
-      if (!cell) continue;
-      if (R === 0) {
-        cell.s = headerStyle;
-      } else {
-        const isEven = R % 2 === 0;
-        const isLink = linkCols.includes(C) && typeof cell.v === 'string' && cell.v.startsWith('http');
-        if (isLink) {
-          cell.l = { Target: cell.v, Tooltip: 'לחץ לפתיחת הקישור' };
-        }
-        cell.s = {
-          font: {
-            name: 'Arial',
-            sz: 10,
-            color: { rgb: isLink ? '0284C7' : '0F172A' },
-            underline: isLink
-          },
-          fill: { fgColor: { rgb: isEven ? 'F8FAFC' : 'FFFFFF' } },
-          alignment: { horizontal: 'right', vertical: 'center', wrapText: true },
-          border: {
-            top: { style: 'thin', color: { rgb: 'E2E8F0' } },
-            bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
-            left: { style: 'thin', color: { rgb: 'E2E8F0' } },
-            right: { style: 'thin', color: { rgb: 'E2E8F0' } }
-          }
-        };
-      }
+      let cell = ws[addr];
+      if (!cell) { if (R === 0) continue; cell = ws[addr] = { t: 's', v: '' }; }
+      if (R === 0) { cell.s = headerStyle; continue; }
+      const band = (groupCol !== null ? group : R) % 2 === 0;
+      const isLink = linkCols.includes(C) && typeof cell.v === 'string' && cell.v.startsWith('http');
+      if (isLink) { cell.l = { Target: cell.v, Tooltip: 'לחץ לפתיחה' }; cell.v = 'פתח'; }
+      if (coordCols.includes(C) && typeof cell.v === 'number') cell.z = '0.000000';
+      const center = centerCols.includes(C) || numCols.includes(C) || isLink;
+      cell.s = {
+        font: { name: 'Arial', sz: 10, bold: numCols.includes(C), color: { rgb: isLink ? '0284C7' : '0F172A' }, underline: isLink },
+        fill: { fgColor: { rgb: band ? 'F1F5F9' : 'FFFFFF' } },
+        alignment: { horizontal: ltrCols.includes(C) || coordCols.includes(C) ? 'left' : (center ? 'center' : 'right'), vertical: 'center', wrapText: true },
+        border: { top: XB('CBD5E1'), bottom: XB('CBD5E1'), left: XB('CBD5E1'), right: XB('CBD5E1') }
+      };
     }
   }
-  ws['!rows'] = [{ hpt: 28 }];
+  ws['!rows'] = [{ hpt: 30 }];
 }
 
 function exportExcelStyled() {
   const rows = filtered();
   if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
-
-  if (typeof XLSX === 'undefined') {
-    showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע');
-    return;
-  }
+  if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
 
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
+  const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
+  const lat = g => g ? +(+g.latitude).toFixed(6) : '';
+  const lon = g => g ? +(+g.longitude).toFixed(6) : '';
 
-  // Sheet 1: ריכוז דיווחים ראשי
-  const summaryData = [
-    ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'סטטוס GPS', 'קישור למפה', 'מס׳ תמונות', 'סיכום עבודות שבוצעו']
-  ];
-
+  // גליון 1 – דיווחים: שורה אחת לכל דיווח (ללא טקסט מחובר של סעיפים)
+  const s1 = [['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט', 'מס׳ סעיפים', 'מס׳ תמונות']];
   rows.forEach(r => {
     const g = gpsOf(r);
-    const ph = photosOf(r);
-    const workSummary = linesOf(r).map(([k, v]) => `• ${k}: ${joinV(v)}`).join('\n');
-    summaryData.push([
-      r.report_id || '',
-      r.date || '',
-      r.company || '',
-      r.contractor_name || '',
-      r.project || '',
-      r.city || '',
-      r.address || '',
-      g ? 'מאומת GPS' : 'ללא מיקום',
-      g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '',
-      ph.length,
-      workSummary
-    ]);
+    s1.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
+      g ? ncText(g) : 'ללא מיקום', lat(g), lon(g), mapLink(g), linesOf(r).length, photosOf(r).length]);
   });
+  const w1 = XLSX.utils.aoa_to_sheet(s1);
+  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 26, 14, 14, 9, 11, 11],
+    { linkCols: [10], centerCols: [1, 7, 11, 12], coordCols: [8, 9], ltrCols: [7], numCols: [] });
+  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
 
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  styleWorksheet(wsSummary, [18, 14, 18, 20, 24, 15, 22, 14, 38, 12, 55], [8]);
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'ריכוז דיווחים');
-
-  // Sheet 2: פירוט סעיפי עבודה להתחשבנות מול קבלנים
-  const detailsData = [
-    ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'סעיף / סוג עבודה', 'כמות / ערך מדווח']
-  ];
+  // גליון 2 – סעיפי עבודה: שורה נפרדת לכל סעיף
+  const s2 = [['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'נ.צ', 'סעיף / סוג עבודה', 'כמות / ערך']];
+  const totals = new Map();
   rows.forEach(r => {
+    const g = gpsOf(r);
+    const base = [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '', g ? ncText(g) : ''];
     const ls = linesOf(r);
-    if (ls.length) {
-      ls.forEach(([k, v]) => {
-        const val = joinV(v);
-        const numVal = Number(val);
-        detailsData.push([
-          r.report_id || '',
-          r.date || '',
-          r.company || '',
-          r.contractor_name || '',
-          r.project || '',
-          r.city || '',
-          r.address || '',
-          k || '',
-          (!isNaN(numVal) && val !== '') ? numVal : val
-        ]);
-      });
-    } else {
-      detailsData.push([
-        r.report_id || '', r.date || '', r.company || '', r.contractor_name || '',
-        r.project || '', r.city || '', r.address || '', '—', '—'
-      ]);
-    }
-  });
-
-  const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
-  styleWorksheet(wsDetails, [18, 14, 18, 20, 24, 15, 20, 30, 22]);
-  XLSX.utils.book_append_sheet(wb, wsDetails, 'פירוט סעיפים להתחשבנות');
-
-  // Sheet 3: אינדקס תמונות וקישורים ישירים
-  const photosData = [
-    ['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'קטגוריית תמונה', 'קישור ישיר לתמונה']
-  ];
-  rows.forEach(r => {
-    photosOf(r).forEach(p => {
-      photosData.push([
-        r.report_id || '',
-        r.date || '',
-        r.company || '',
-        r.contractor_name || '',
-        r.project || '',
-        p.category || 'תיעוד כללי',
-        p.url
-      ]);
+    if (!ls.length) { s2.push([...base, '—', '']); return; }
+    ls.forEach(([k, v]) => {
+      const val = joinV(v);
+      const n = Number(val);
+      const isNum = val !== '' && !isNaN(n);
+      s2.push([...base, k || '', isNum ? n : val]);
+      const key = String(k || '—');
+      const t = totals.get(key) || { count: 0, sum: 0, hasNum: false, reports: new Set() };
+      t.count++; t.reports.add(r.report_id);
+      if (isNum) { t.sum += n; t.hasNum = true; }
+      totals.set(key, t);
     });
   });
+  const w2 = XLSX.utils.aoa_to_sheet(s2);
+  styleWorksheet(w2, [16, 13, 16, 18, 24, 14, 24, 26, 32, 18],
+    { groupCol: 0, centerCols: [1, 7], ltrCols: [7], numCols: [9] });
+  XLSX.utils.book_append_sheet(wb, w2, 'סעיפי עבודה');
 
-  if (photosData.length > 1) {
-    const wsPhotos = XLSX.utils.aoa_to_sheet(photosData);
-    styleWorksheet(wsPhotos, [18, 14, 18, 20, 24, 22, 62], [6]);
-    XLSX.utils.book_append_sheet(wb, wsPhotos, 'אינדקס תמונות');
+  // גליון 3 – סיכום כמויות לפי סעיף (לבדיקת התחשבנות)
+  const s3 = [['סעיף / סוג עבודה', 'מס׳ דיווחים', 'מס׳ הופעות', 'סה״כ כמות']];
+  [...totals].sort((a, b) => a[0].localeCompare(b[0], 'he')).forEach(([k, t]) => s3.push([k, t.reports.size, t.count, t.hasNum ? t.sum : '']));
+  const w3 = XLSX.utils.aoa_to_sheet(s3);
+  styleWorksheet(w3, [36, 14, 14, 16], { numCols: [1, 2, 3] });
+  XLSX.utils.book_append_sheet(wb, w3, 'סיכום סעיפים');
+
+  // גליון 4 – אינדקס תמונות
+  const s4 = [['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'קטגוריית תמונה', 'קישור']];
+  rows.forEach(r => photosOf(r).forEach(p => s4.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', p.category || 'תיעוד כללי', p.url])));
+  if (s4.length > 1) {
+    const w4 = XLSX.utils.aoa_to_sheet(s4);
+    styleWorksheet(w4, [16, 13, 16, 18, 24, 22, 10], { linkCols: [6], groupCol: 0, centerCols: [1] });
+    XLSX.utils.book_append_sheet(wb, w4, 'אינדקס תמונות');
   }
 
   XLSX.writeFile(wb, `דוח-בקרה-והתחשבנות-${today()}.xlsx`);
@@ -1625,9 +1587,14 @@ async function openDetail(id) {
       <div class="val">${fmt(k, r[k])}</div>
     </div>
   `).join('') + (gps ? `
-    <div class="meta-box" style="border-color:var(--ok)">
-      <div class="lbl">מיקום GPS מאומת</div>
-      <div class="val"><a href="${mapUrl}" target="_blank" rel="noopener" style="color:var(--ok);text-decoration:none;font-weight:800">📍 פתח ב-Google Maps ↗</a></div>
+    <div class="meta-box" style="border-color:var(--ok);grid-column:1/-1">
+      <div class="lbl">🧭 נ.צ – נקודת ציון (GPS מאומת)</div>
+      <div class="val"><span class="nc-chip" style="font-size:15px">${esc(ncText(gps))}</span></div>
+      <div class="nc-actions">
+        <button type="button" onclick="copyNC('${esc(ncText(gps))}')">📋 העתק נ.צ</button>
+        <a href="${mapUrl}" target="_blank" rel="noopener">🗺️ Google Maps ↗</a>
+        <a href="https://waze.com/ul?ll=${gps.latitude},${gps.longitude}&navigate=yes" target="_blank" rel="noopener">🚗 Waze ↗</a>
+      </div>
     </div>
   ` : '');
 
@@ -1675,7 +1642,6 @@ async function openDetail(id) {
     <div class="actions-footer">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
-        <button class="btn ok" onclick="downloadSingleReport('${esc(r.report_id)}')">📥 הורדת משימה (JSON)</button>
         <button class="btn" id="cl">סגירה</button>
       </div>
       <button class="btn bad" id="del">🗑️ מחיקת דיווח</button>
@@ -1688,7 +1654,7 @@ async function openDetail(id) {
   $('#cl-top').onclick = closeModal;
 
   $('#share-rep').onclick = async () => {
-    const summaryText = `דוח ביצוע עבודה #${r.report_id}\nפרויקט: ${r.project || '—'}\nחברה: ${r.company || '—'}\nקבלן: ${r.contractor_name || '—'}\nתאריך: ${r.date || '—'}\nכתובת: ${[r.city, r.address].filter(Boolean).join(', ') || '—'}` +
+    const summaryText = `דוח ביצוע עבודה #${r.report_id}\nפרויקט: ${r.project || '—'}\nחברה: ${r.company || '—'}\nקבלן: ${r.contractor_name || '—'}\nתאריך: ${r.date || '—'}\nכתובת: ${[r.city, r.address].filter(Boolean).join(', ') || '—'}` + (gps ? `\nנ.צ: ${ncText(gps)}\n${mapUrl}` : '') +
       (lines.length ? `\n\nפירוט עבודות:\n` + lines.map(([k, v]) => `• ${k}: ${joinV(v)}`).join('\n') : '');
     if (navigator.share) {
       try { await navigator.share({ title: `דוח עבודה - ${r.project || r.report_id}`, text: summaryText }); return; } catch (e) {}
@@ -1738,7 +1704,7 @@ async function openDetail(id) {
         <table>
           <tbody>
             ${allMetaKeys.map(k => `<tr><th style="width:32%">${esc(LABELS[k] || k)}</th><td>${fmt(k, r[k])}</td></tr>`).join('')}
-            ${gps ? `<tr><th>קואורדינטות GPS</th><td style="direction:ltr;text-align:right">${gps.latitude}, ${gps.longitude}</td></tr>` : ''}
+            ${gps ? `<tr><th>נ.צ (קואורדינטות)</th><td style="direction:ltr;text-align:right">${esc(ncText(gps))}</td></tr>` : ''}
           </tbody>
         </table>
         ${lines.length ? `
@@ -1767,20 +1733,6 @@ async function openDetail(id) {
 }
 
 $('#modal').onclick = e => { if (e.target.id === 'modal') e.target.classList.remove('open'); };
-
-
-function downloadSingleReport(id) {
-  const r = reports.find(x => x.report_id === id);
-  if (!r) return;
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(r, null, 2));
-  const dlAnchor = document.createElement('a');
-  dlAnchor.setAttribute("href", dataStr);
-  dlAnchor.setAttribute("download", `report_${r.report_id}_${r.date || 'data'}.json`);
-  document.body.appendChild(dlAnchor);
-  dlAnchor.click();
-  dlAnchor.remove();
-  showToast(`הדיווח #${r.report_id} הורד בהצלחה!`);
-}
 
 function start() {
   const hp = new URLSearchParams(location.hash.replace(/^#/, ''));
