@@ -788,7 +788,12 @@ const LABELS = {
   company: 'חברה / לקוח',
   city: 'עיר',
   address: 'כתובת מדויקת',
-  created_at: 'זמן קליטה במערכת'
+  created_at: 'זמן קליטה במערכת',
+  updated_at: 'עודכן לאחרונה',
+  lat: 'קו רוחב',
+  lon: 'קו אורך',
+  unit_kind: 'סוג (גוב / עמוד)',
+  unit_number: 'מספר גוב / עמוד'
 };
 
 const $ = s => document.querySelector(s);
@@ -960,6 +965,7 @@ function unitOf(r, p) {
   const dt = parseJ(r.details);
   if (dt && typeof dt === 'object') for (const k of Object.keys(dt)) if (k !== 'lines' && k !== 'gps' && unitKeyOk(k)) add(k, dt[k]);
   for (const k of Object.keys(r)) if (!['details', 'photos'].includes(k) && unitKeyOk(k)) add(k, r[k]);
+  if (r.unit_number) add(r.unit_kind || 'גוב', r.unit_number);
   for (const [k, v] of linesOf(r)) if (UNIT_NUM_RE.test(String(k))) add(String(k), joinV(v));
   return found.length ? { text: found.map(f => `${f.kind} ${f.num}`).join(' · ') } : null;
 }
@@ -1593,7 +1599,7 @@ function exportExcelStyled() {
 
   // כל שדות המידע הנוספים של הדיווח (מעבר לשדות הבסיס) – נאספים אוטומטית
   const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
-  const skip = new Set(['id', 'photos', 'details', 'created_at', ...baseKeys]);
+  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
   const extraKeys = [];
   const addExtra = k => { if (!extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
   rows.forEach(r => {
@@ -1673,7 +1679,7 @@ async function listPhotos(id) {
 
 function fmt(k, v) {
   if (v && typeof v === 'object') return `<pre style="margin:0;white-space:pre-wrap;font-size:12px">${esc(JSON.stringify(v, null, 1))}</pre>`;
-  if (k === 'created_at' && v) { const d = new Date(v); if (!isNaN(d)) return esc(d.toLocaleString('he-IL')); }
+  if ((k === 'created_at' || k === 'updated_at') && v) { const d = new Date(v); if (!isNaN(d)) return esc(d.toLocaleString('he-IL')); }
   return esc(v ?? '—');
 }
 
@@ -1683,7 +1689,7 @@ async function openDetail(id) {
   if (!r) return;
 
   const priorityKeys = ['date', 'company', 'contractor_name', 'project', 'city', 'address', 'created_at'];
-  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', ...priorityKeys].includes(k));
+  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
   const allMetaKeys = [...priorityKeys.filter(k => k in r), ...extraKeys];
 
   const lines = linesOf(r);
