@@ -455,6 +455,7 @@ main { max-width: 1220px; margin: 0 auto; padding: 24px 20px 48px; }
   display: none;
   z-index: 50;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 20px 12px;
 }
 .modal.open { display: block; animation: fadeIn 0.18s ease-out; }
@@ -467,7 +468,9 @@ main { max-width: 1220px; margin: 0 auto; padding: 24px 20px 48px; }
   border-radius: 20px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
-  overflow: hidden;
+  overflow-y: auto;
+  max-height: 92vh;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sheet-header {
