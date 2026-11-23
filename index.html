@@ -1618,19 +1618,28 @@ function exportExcelStyled() {
   const fmtCreated = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString('he-IL'); };
 
   const unitOfRow = r => { const u = unitOf(r, null); return u ? u.text : ''; };
-  const baseCells = r => [r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', r.city || '', r.address || '',
-    unitOfRow(r), ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at)];
-  const baseHead = ['מזהה דיווח', 'תאריך ביצוע', 'חברה / לקוח', 'קבלן מבצע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד', ...extraKeys.map(extraLabel), 'זמן קליטה במערכת'];
   const locHead = ['נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט'];
   const locCells = r => { const g = gpsOf(r); return [g ? ncText(g) : 'ללא מיקום', g ? +(+g.latitude).toFixed(6) : '', g ? +(+g.longitude).toFixed(6) : '', mapLink(g)]; };
-  const nE = extraKeys.length, cStart = 9 + nE;
 
-  // איסוף סעיפים: כל סעיף = עמודה; אם אותו סעיף חוזר באותו דיווח – עמודה נוספת (כבל, כבל (2)…)
+  // שדות שהם בעצם עמודות רגילות (תאריך / פרויקט / עיר / כתובת) – לא נספרים כסעיף עבודה ולא מוכפלים
+  const canonOf = name => {
+    const t = String(name).replace(/[:׳']/g, '').trim();
+    if (/^(תאריך|תאריך ביצוע)$/.test(t)) return 'date';
+    if (/^(שם פרויקט|פרויקט|פרויקט \/ אתר|שם האתר|אתר)$/.test(t)) return 'project';
+    if (/^(עיר|ישוב|יישוב|שם עיר)$/.test(t)) return 'city';
+    if (/^(כתובת|כתובת מדויקת)$/.test(t)) return 'address';
+    return null;
+  };
+
+  // איסוף שדות הדיווח לפי סדר הטופס: כל שדה = עמודה; אם אותו שדה חוזר באותו דיווח – עמודה נוספת (כבל, כבל (2)…)
   const totals = new Map(), itemNames = [], maxOcc = new Map();
   const perReport = rows.map(r => {
     const m = new Map(), cnt = new Map();
+    const top = { date: r.date || '', project: r.project || '', city: r.city || '', address: r.address || '' };
     workLines(r).forEach(([k, v]) => {
       const name = String(k || '—'), val = joinV(v), n = Number(val), isNum = val !== '' && !isNaN(n);
+      const cn = canonOf(name);
+      if (cn) { if (!top[cn] && val !== '') top[cn] = val; return; }
       const c = (cnt.get(name) || 0) + 1; cnt.set(name, c);
       if (!itemNames.includes(name)) itemNames.push(name);
       maxOcc.set(name, Math.max(maxOcc.get(name) || 0, c));
@@ -1640,19 +1649,28 @@ function exportExcelStyled() {
       if (isNum) { t.sum += n; t.hasNum = true; }
       totals.set(name, t);
     });
+    m.top = top;
     return m;
   });
   const itemCols = [];
   itemNames.forEach(nm => { for (let c = 1; c <= maxOcc.get(nm); c++) itemCols.push({ key: nm + '\u0000' + c, label: c === 1 ? nm : `${nm} (${c})` }); });
 
-  // גליון 1 – דיווחים: שורה אחת לכל דיווח, כל ערך בעמודה משלו, המיקום בסוף
-  const nI = itemCols.length;
-  const s1 = [[...baseHead, ...itemCols.map(c => c.label), ...locHead]];
-  rows.forEach((r, i) => s1.push([...baseCells(r), ...itemCols.map(c => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''), ...locCells(r)]));
-  const cNC = cStart + nI, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
+  // גליון 1 – דיווחים: שורה אחת לכל דיווח; תאריך, פרויקט, עיר, כתובת ושאר שדות הטופס (עד טקסט חופשי) – כל אחד בעמודה נפרדת; המיקום בסוף
+  const nI = itemCols.length, nE = extraKeys.length;
+  const s1 = [['מזהה דיווח', 'חברה / לקוח', 'קבלן מבצע', 'תאריך ביצוע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד',
+    ...itemCols.map(c => c.label), ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', ...locHead]];
+  rows.forEach((r, i) => {
+    const t = perReport[i].top;
+    s1.push([r.report_id || '', r.company || '', r.contractor_name || '', t.date, t.project, t.city, t.address, unitOfRow(r),
+      ...itemCols.map(c => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''),
+      ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at), ...locCells(r)]);
+  });
+  const cNC = 9 + nI + nE, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
+  const longText = l => /טקסט|הערות|הערה|תיאור|פירוט/.test(l);
   const w1 = XLSX.utils.aoa_to_sheet(s1);
-  styleWorksheet(w1, [16, 13, 16, 18, 24, 14, 24, 16, ...extraKeys.map(() => 18), 18, ...itemCols.map(c => Math.min(26, Math.max(12, c.label.length + 3))), 26, 14, 14, 9],
-    { linkCols: [cMap], centerCols: [1, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: itemCols.map((_, i) => cStart + i) });
+  styleWorksheet(w1, [16, 16, 18, 13, 24, 14, 24, 16,
+      ...itemCols.map(c => longText(c.label) ? 42 : Math.min(26, Math.max(12, c.label.length + 3))), ...extraKeys.map(() => 18), 18, 26, 14, 14, 9],
+    { linkCols: [cMap], centerCols: [3, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: itemCols.filter(c => !longText(c.label)).map(c => 8 + itemCols.indexOf(c)) });
   XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
 
   // גליון סיכום כמויות לפי סעיף
@@ -1671,7 +1689,7 @@ function exportExcelStyled() {
     XLSX.utils.book_append_sheet(wb, w4, 'אינדקס תמונות');
   }
 
-  XLSX.writeFile(wb, `דוח-בקרה-והתחשבנות-${today()}.xlsx`);
+  XLSX.writeFile(wb, `דוח-בקרה-שורה-לדיווח-${today()}.xlsx`);
   showToast('קובץ האקסל המעוצב הורד בהצלחה!');
 }
 
