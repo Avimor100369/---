@@ -4,105 +4,721 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>לוח ניהול – דיווח עבודות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
-:root{--bg:#f4f6fb;--card:#fff;--tx:#14213d;--mut:#6b7690;--line:#e3e8f2;--pri:#1f6feb;--pri-tx:#fff;--bad:#d1364b;--ok:#1a9d5b}
-:root[data-theme=dark]{--bg:#0e1420;--card:#172033;--tx:#e8eefc;--mut:#8f9bb5;--line:#26324b;--pri:#4c8dff;--pri-tx:#08101f;--bad:#ff6b7e;--ok:#3ccf8a}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1420;--card:#172033;--tx:#e8eefc;--mut:#8f9bb5;--line:#26324b;--pri:#4c8dff;--pri-tx:#08101f;--bad:#ff6b7e;--ok:#3ccf8a}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Segoe UI",Arial,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-header h1{font-size:18px;margin:0;flex:1}
-button,input{font:inherit}
-.btn{border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:10px;padding:8px 14px;cursor:pointer}
-.btn.pri{background:var(--pri);color:var(--pri-tx);border-color:var(--pri)}
-.btn.bad{color:var(--bad)}
-main{max-width:980px;margin:0 auto;padding:16px}
-.stats{display:flex;gap:10px;margin-bottom:12px}
-.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-.stat b{display:block;font-size:22px}.stat span{color:var(--mut);font-size:13px}
-.search{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--tx);margin-bottom:12px}
-.row{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer}
-.row:active{opacity:.7}.row small{color:var(--mut);display:block;font-size:12px}
-.row .id{grid-column:1/-1;color:var(--mut);font-size:12px;direction:ltr;text-align:right}
-.empty,.msg{text-align:center;color:var(--mut);padding:30px 10px}
-.err.ok{border-color:var(--ok);color:var(--ok)}
-.link{background:none;border:0;color:var(--pri);cursor:pointer;padding:6px 0;text-decoration:underline}
-.sub{margin:14px 0 6px;font-size:15px;color:var(--mut)}
-.cap{font-size:12px;color:var(--mut);margin-top:2px}
-.err{background:var(--card);border:1px solid var(--bad);color:var(--bad);border-radius:12px;padding:14px;margin-bottom:12px;white-space:pre-wrap;line-height:1.5}
-.login{max-width:360px;margin:12vh auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
-.login h2{margin:0 0 14px}.login input{width:100%;padding:12px;margin-bottom:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx)}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:10;overflow:auto}
-.modal.open{display:block}
-.sheet{background:var(--card);max-width:760px;margin:24px auto;border-radius:16px;padding:18px;min-height:40vh}
-.sheet h3{margin:0 0 12px}
-.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:15px;margin-bottom:14px}
-.kv div:nth-child(odd){color:var(--mut)}.kv div:nth-child(even){word-break:break-word}
-.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:12px 0}
-.photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:pointer}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-#sheet{display:none}
-@media print{body>*:not(#sheet){display:none!important}#sheet{display:block;color:#000;background:#fff}
-#sheet .p{page-break-after:always;height:96vh;display:flex;align-items:center;justify-content:center}
-#sheet .p:last-child{page-break-after:auto}#sheet .p img{max-width:100%;max-height:96vh;object-fit:contain}
-#sheet .first{display:block;height:auto;padding:20px}}
-.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
-.filters select,.filters input{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font:inherit}
-.filters label{font-size:13px;color:var(--mut);display:flex;gap:6px;align-items:center}
-.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
-.bar .spacer{flex:1}
-.tabs{display:flex;gap:6px}
-.gps{color:var(--ok);font-size:12px}
-.co{background:var(--pri);color:var(--pri-tx);border-radius:6px;padding:1px 8px;font-weight:700;font-size:12px;direction:ltr;display:inline-block}
-#map{position:relative;z-index:0}
+:root {
+  --bg: #f1f5f9;
+  --bg-grad: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --card: #ffffff;
+  --card-alt: #f8fafc;
+  --tx: #0f172a;
+  --tx-sec: #334155;
+  --mut: #64748b;
+  --line: #e2e8f0;
+  --pri: #0f4c81;
+  --pri-hover: #0a365c;
+  --pri-light: #e0f2fe;
+  --pri-tx: #ffffff;
+  --acc: #0284c7;
+  --bad: #e11d48;
+  --bad-bg: #ffe4e6;
+  --ok: #059669;
+  --ok-bg: #d1fae5;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  --radius: 14px;
+}
+
+:root[data-theme=dark] {
+  --bg: #0b1120;
+  --bg-grad: linear-gradient(135deg, #0b1120 0%, #111827 100%);
+  --card: #1e293b;
+  --card-alt: #0f172a;
+  --tx: #f8fafc;
+  --tx-sec: #cbd5e1;
+  --mut: #94a3b8;
+  --line: #334155;
+  --pri: #38bdf8;
+  --pri-hover: #7dd3fc;
+  --pri-light: rgba(56, 189, 248, 0.15);
+  --pri-tx: #0f172a;
+  --acc: #38bdf8;
+  --bad: #fb7185;
+  --bad-bg: rgba(251, 113, 133, 0.15);
+  --ok: #34d399;
+  --ok-bg: rgba(52, 211, 153, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 25px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) {
+    --bg: #0b1120;
+    --bg-grad: linear-gradient(135deg, #0b1120 0%, #111827 100%);
+    --card: #1e293b;
+    --card-alt: #0f172a;
+    --tx: #f8fafc;
+    --tx-sec: #cbd5e1;
+    --mut: #94a3b8;
+    --line: #334155;
+    --pri: #38bdf8;
+    --pri-hover: #7dd3fc;
+    --pri-light: rgba(56, 189, 248, 0.15);
+    --pri-tx: #0f172a;
+    --acc: #38bdf8;
+    --bad: #fb7185;
+    --bad-bg: rgba(251, 113, 133, 0.15);
+    --ok: #34d399;
+    --ok-bg: rgba(52, 211, 153, 0.15);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 20px 25px rgba(0, 0, 0, 0.6);
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tx);
+  font-family: 'Heebo', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pri);
+  color: var(--pri-tx);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 2px 6px rgba(15, 76, 129, 0.25);
+}
+header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+header h1 small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--mut);
+}
+
+button, input, select { font: inherit; }
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--tx);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+.btn:hover { background: var(--card-alt); border-color: var(--mut); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn.pri { background: var(--pri); color: var(--pri-tx); border-color: var(--pri); font-weight: 600; }
+.btn.pri:hover { background: var(--pri-hover); border-color: var(--pri-hover); }
+.btn.ok { background: var(--ok); color: #fff; border-color: var(--ok); font-weight: 600; }
+.btn.ok:hover { opacity: 0.92; }
+.btn.bad { color: var(--bad); border-color: var(--bad-bg); background: var(--bad-bg); }
+.btn.bad:hover { background: var(--bad); color: #fff; }
+.btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+main { max-width: 1140px; margin: 0 auto; padding: 24px 20px; }
+
+/* Stats Cards */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.stat {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.stat::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 4px;
+  background: var(--pri);
+}
+.stat b { font-size: 28px; font-weight: 800; line-height: 1.1; color: var(--tx); margin-bottom: 4px; }
+.stat span { color: var(--mut); font-size: 13px; font-weight: 500; }
+
+/* Control Panel (Search & Filters) */
+.controls-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.search-wrap { position: relative; margin-bottom: 12px; }
+.search {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-alt);
+  color: var(--tx);
+  font-size: 15px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search:focus { outline: none; border-color: var(--pri); box-shadow: 0 0 0 3px var(--pri-light); background: var(--card); }
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filters select, .filters input {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-alt);
+  color: var(--tx);
+  font-size: 14px;
+}
+.filters label {
+  font-size: 13px;
+  color: var(--mut);
+  font-weight: 500;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: var(--card-alt);
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.filters label input { border: none; background: transparent; padding: 4px; }
+
+/* Action Bar & Tabs */
+.bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.bar .spacer { flex: 1; }
+.tabs {
+  display: inline-flex;
+  background: var(--card);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.tabs .btn { border: none; box-shadow: none; background: transparent; padding: 7px 14px; border-radius: 8px; }
+.tabs .btn.pri { background: var(--pri); color: var(--pri-tx); }
+
+/* Report List Rows */
+.row {
+  display: grid;
+  grid-template-columns: 120px 1.2fr 1.5fr auto;
+  gap: 14px;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.18s ease;
+}
+.row:hover {
+  border-color: var(--pri);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+@media (max-width: 720px) {
+  .row { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row .meta-end { grid-column: 1 / -1; justify-content: flex-start; }
+}
+.row small { color: var(--mut); display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.row .val { font-weight: 600; font-size: 15px; color: var(--tx); }
+.row .meta-end { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.row .id-row {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--mut);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge.co { background: var(--pri-light); color: var(--pri); direction: ltr; }
+.badge.gps { background: var(--ok-bg); color: var(--ok); }
+.badge.ph-cnt { background: var(--card-alt); border: 1px solid var(--line); color: var(--tx-sec); }
+
+.empty, .msg { text-align: center; color: var(--mut); padding: 40px 16px; font-size: 15px; }
+.err { background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; white-space: pre-wrap; line-height: 1.5; font-weight: 500; }
+.err.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.link { background: none; border: 0; color: var(--pri); cursor: pointer; padding: 8px 0; text-decoration: underline; font-weight: 500; }
+
+/* Login */
+.login {
+  max-width: 400px;
+  margin: 10vh auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow-lg);
+}
+.login h2 { margin: 0 0 6px; font-size: 24px; font-weight: 800; }
+.login p { margin: 0 0 20px; color: var(--mut); font-size: 14px; }
+.login input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-alt);
+  color: var(--tx);
+}
+
+/* Modal & Structured Report Detail Sheet */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: none;
+  z-index: 50;
+  overflow-y: auto;
+  padding: 20px 12px;
+}
+.modal.open { display: block; animation: fadeIn 0.18s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.sheet {
+  background: var(--card);
+  max-width: 920px;
+  margin: 10px auto 30px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.sheet-header {
+  background: var(--pri);
+  color: var(--pri-tx);
+  padding: 22px 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.sheet-header h3 { margin: 0 0 4px; font-size: 22px; font-weight: 800; }
+.sheet-header .sub-id { font-size: 13px; opacity: 0.85; direction: ltr; display: inline-block; }
+.sheet-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: inherit;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet-close:hover { background: rgba(255,255,255,0.35); }
+
+.sheet-body { padding: 24px 26px; }
+
+/* Structured Cards inside Detail Modal */
+.detail-section {
+  background: var(--card-alt);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pri);
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Metadata Grid (Cards instead of grocery list) */
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+.meta-box {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.meta-box .lbl { font-size: 11px; font-weight: 600; color: var(--mut); margin-bottom: 2px; }
+.meta-box .val { font-size: 14px; font-weight: 600; color: var(--tx); word-break: break-word; }
+
+/* Work Details Structured Table */
+.work-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.work-table th {
+  background: var(--pri-light);
+  color: var(--pri);
+  text-align: right;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.work-table td {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  vertical-align: top;
+}
+.work-table tr:nth-child(even) td { background: var(--card-alt); }
+.work-table td:first-child { font-weight: 600; color: var(--tx-sec); width: 35%; }
+
+/* Photo Gallery & Lightbox */
+.gallery-cat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 10px;
+  padding: 6px 12px;
+  background: var(--card);
+  border-right: 4px solid var(--pri);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 12px;
+}
+.photo-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+.photo-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.photo-card img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+.photo-actions {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+.photo-actions button {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--card-alt);
+  color: var(--tx);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.photo-actions button:hover { background: var(--pri); color: var(--pri-tx); border-color: var(--pri); }
+
+/* Lightbox Modal for full-size photo viewing & sharing */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 95vw; max-height: 78vh; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain; }
+.lightbox-bar {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.actions-footer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px 26px;
+  background: var(--card-alt);
+  border-top: 1px solid var(--line);
+  justify-content: space-between;
+}
+
+/* Gallery Tab View (By Company / Category) */
+.gallery-hub-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  background: var(--card);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+.hub-group {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.hub-group-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--pri);
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--pri-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hub-photo-meta {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--mut);
+  background: var(--card-alt);
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toast Notification */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  opacity: 0;
+  transition: all 0.25s ease;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+#sheet { display: none; }
+@media print {
+  body > *:not(#sheet) { display: none !important; }
+  #sheet { display: block; color: #000; background: #fff; font-family: 'Heebo', Arial, sans-serif; }
+  #sheet .p { page-break-after: always; height: 96vh; display: flex; align-items: center; justify-content: center; }
+  #sheet .p:last-child { page-break-after: auto; }
+  #sheet .p img { max-width: 100%; max-height: 96vh; object-fit: contain; }
+  #sheet .first { display: block; height: auto; padding: 24px; }
+  #sheet table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  #sheet th, #sheet td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: right; }
+  #sheet th { background: #f1f5f9; }
+}
+#map { position: relative; z-index: 0; }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div class="modal" id="modal"><div class="sheet" id="detail"></div></div>
+<div class="lightbox" id="lightbox">
+  <img id="lb-img" src="" alt="תצוגה מקדימה">
+  <div class="lightbox-bar">
+    <button class="btn pri" id="lb-share">📤 שיתוף / שליחה</button>
+    <button class="btn" id="lb-copy">🔗 העתקת קישור</button>
+    <button class="btn" id="lb-dl">⬇️ הורדת תמונה</button>
+    <button class="btn bad" id="lb-close">✕ סגירה</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
 <div id="sheet"></div>
 
 <script>
 const SB = 'https://oisozmbfaebtqicleufm.supabase.co';
 const KEY = 'sb_publishable_8F8GsbT_3oCguIchXRwe0A_zATL1KWA';
 const BUCKET = 'report-photos';
-const LABELS = {report_id:'מזהה דיווח',contractor_name:'קבלן',date:'תאריך',project:'פרויקט',created_at:'נשמר ב',company:'חברה',city:'עיר',address:'כתובת'};
+const LABELS = {
+  report_id: 'מזהה דיווח',
+  contractor_name: 'קבלן מבצע',
+  date: 'תאריך ביצוע',
+  project: 'פרויקט',
+  company: 'חברה',
+  city: 'עיר',
+  address: 'כתובת',
+  created_at: 'זמן קליטה במערכת'
+};
+
 const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let session = null, reports = [], query = '';
+
+function showToast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
 
 try { session = JSON.parse(localStorage.getItem('dash_session') || 'null'); } catch (e) {}
 try { const t = localStorage.getItem('dash_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 
-function saveSession(s) { session = s; try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {} }
+function saveSession(s) {
+  session = s;
+  try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {}
+}
 
 async function auth(path, body) {
-  const r = await fetch(`${SB}/auth/v1/${path}`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(`${SB}/auth/v1/${path}`, {
+    method: 'POST',
+    headers: { apikey: KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error_description || j.msg || 'שגיאת התחברות');
   return { access_token: j.access_token, refresh_token: j.refresh_token, email: j.user && j.user.email };
 }
 
 async function api(url, opts = {}, retry = true) {
-  const r = await fetch(url, { ...opts, headers: { apikey: KEY, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  const r = await fetch(url, {
+    ...opts,
+    headers: {
+      apikey: KEY,
+      Authorization: 'Bearer ' + session.access_token,
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
   if (r.status === 401 && retry && session.refresh_token) {
-    try { saveSession(await auth('token?grant_type=refresh_token', { refresh_token: session.refresh_token })); return api(url, opts, false); }
-    catch (e) { saveSession(null); renderLogin(); throw e; }
+    try {
+      saveSession(await auth('token?grant_type=refresh_token', { refresh_token: session.refresh_token }));
+      return api(url, opts, false);
+    } catch (e) {
+      saveSession(null);
+      renderLogin();
+      throw e;
+    }
   }
   return r;
 }
 
 function renderLogin(msg, ok) {
-  $('#app').innerHTML = `<form class="login" id="lf"><h2>כניסה ללוח הניהול</h2>
-    <input id="em" type="email" placeholder="אימייל" autocomplete="username" required>
+  $('#app').innerHTML = `<form class="login" id="lf">
+    <h2>לוח ניהול ובקרה</h2>
+    <p>התחבר למערכת לניהול דיווחי שטח ותיעוד</p>
+    <input id="em" type="email" placeholder="כתובת אימייל" autocomplete="username" required>
     <input id="pw" type="password" placeholder="סיסמה" autocomplete="current-password" required>
     ${msg ? `<div class="err${ok ? ' ok' : ''}">${esc(msg)}</div>` : ''}
-    <button class="btn pri" style="width:100%">התחברות</button>
-    <button type="button" class="link" id="fg">שכחתי סיסמה</button></form>`;
+    <button class="btn pri" style="width:100%;padding:12px">כניסה למערכת</button>
+    <div style="text-align:center;margin-top:8px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
+  </form>`;
   $('#lf').onsubmit = async e => {
     e.preventDefault();
-    try { saveSession(await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value })); start(); }
-    catch (err) { renderLogin(err.message); }
+    try {
+      saveSession(await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value }));
+      start();
+    } catch (err) { renderLogin(err.message); }
   };
   $('#fg').onclick = async () => {
     const email = $('#em').value.trim();
@@ -112,21 +728,25 @@ function renderLogin(msg, ok) {
     try {
       const r = await fetch(url, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.msg || j.error_description || 'שליחת המייל נכשלה'); }
-      renderLogin('אם האימייל רשום, נשלח אליו קישור לאיפוס סיסמה.' + (hosted ? '' : ' שים לב: הלוח פתוח מקובץ מקומי, ולכן הקישור לא יחזור אליו. ראה הסבר אצל Claude.'), true);
+      renderLogin('אם האימייל רשום, נשלח אליו קישור לאיפוס סיסמה.', true);
     } catch (err) { renderLogin(err.message); }
   };
 }
 
 function renderReset(token) {
-  $('#app').innerHTML = `<form class="login" id="rf2"><h2>בחירת סיסמה חדשה</h2>
+  $('#app').innerHTML = `<form class="login" id="rf2">
+    <h2>בחירת סיסמה חדשה</h2>
+    <p>הזן סיסמה חדשה לחשבונך</p>
     <input id="np" type="password" placeholder="סיסמה חדשה (לפחות 6 תווים)" autocomplete="new-password" minlength="6" required>
-    <button class="btn pri" style="width:100%">שמירת סיסמה</button></form>`;
+    <button class="btn pri" style="width:100%;padding:12px">שמירת סיסמה</button>
+  </form>`;
   $('#rf2').onsubmit = async e => {
     e.preventDefault();
     const r = await fetch(`${SB}/auth/v1/user`, { method: 'PUT', headers: { apikey: KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('#np').value }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); alert(j.msg || j.error_description || 'העדכון נכשל'); return; }
     history.replaceState(null, '', location.pathname + location.search);
-    saveSession(null); renderLogin('הסיסמה עודכנה. אפשר להתחבר.', true);
+    saveSession(null);
+    renderLogin('הסיסמה עודכנה בהצלחה. אפשר להתחבר.', true);
   };
 }
 
@@ -139,12 +759,16 @@ create policy "dash list photos" on storage.objects for select to authenticated 
 create policy "dash delete photos" on storage.objects for delete to authenticated using (bucket_id='report-photos');`;
 
 async function load() {
-  $('#app').innerHTML = '<div class="msg">טוען דיווחים…</div>';
+  $('#app').innerHTML = '<div class="msg">טוען נתונים ודיווחים מהשרת…</div>';
   let r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=2000`);
   if (r.status === 400) r = await api(`${SB}/rest/v1/reports?select=*&limit=2000`);
   if (!r.ok) {
     let body = ''; try { body = await r.text(); } catch (e) {}
-    renderShell(`<div class="err">שגיאה ${r.status} מ-Supabase:\n${esc(body.slice(0, 400))}\n\n${esc(SQL_HINT)}</div>`); return;
+    renderShell(`<div class="err">שגיאה ${r.status} מ-Supabase:
+${esc(body.slice(0, 400))}
+
+${esc(SQL_HINT)}</div>`);
+    return;
   }
   const rows = await r.json();
   const seen = new Map();
@@ -153,7 +777,7 @@ async function load() {
   renderShell();
 }
 
-let fCompany = '', fContractor = '', fFrom = '', fTo = '', view = 'list', mapObj = null, mapTok = 0, leafletP = null;
+let fCompany = '', fContractor = '', fFrom = '', fTo = '', view = 'list', galleryGroupBy = 'company', mapObj = null, mapTok = 0, leafletP = null;
 
 function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
 function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return g && g.latitude != null && g.longitude != null ? g : null; }
@@ -171,25 +795,111 @@ function filtered() {
     (!fTo || (r.date && r.date <= fTo)));
 }
 
+/* Lightbox & Photo Sharing */
+let currentLbUrl = '', currentLbTitle = '';
+function openLightbox(url, title = 'תמונת דיווח') {
+  currentLbUrl = url;
+  currentLbTitle = title;
+  $('#lb-img').src = url;
+  $('#lightbox').classList.add('open');
+}
+$('#lb-close').onclick = () => $('#lightbox').classList.remove('open');
+$('#lightbox').onclick = e => { if (e.target.id === 'lightbox') $('#lightbox').classList.remove('open'); };
+
+async function sharePhoto(url, title = 'תיעוד עבודה') {
+  try {
+    if (navigator.share) {
+      // Try sharing as actual file if supported, fallback to URL
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const file = new File([blob], 'report-photo.jpg', { type: blob.type || 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title, files: [file] });
+          return;
+        }
+      } catch (e) {}
+      await navigator.share({ title, url });
+      return;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+  }
+  copyPhotoLink(url);
+}
+
+function copyPhotoLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('הקישור לתמונה הועתק! ניתן להדביק בוואטסאפ או במייל')).catch(() => {
+    prompt('העתק את הקישור לתמונה:', url);
+  });
+}
+
+async function downloadPhoto(url, filename = 'photo.jpg') {
+  try {
+    const r = await fetch(url);
+    const b = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  } catch (e) {
+    window.open(url, '_blank');
+  }
+}
+
+$('#lb-share').onclick = () => sharePhoto(currentLbUrl, currentLbTitle);
+$('#lb-copy').onclick = () => copyPhotoLink(currentLbUrl);
+$('#lb-dl').onclick = () => downloadPhoto(currentLbUrl, `${currentLbTitle.replace(/\s+/g, '_')}.jpg`);
+
 function renderShell(extra = '') {
   const names = [...new Set(reports.map(r => r.contractor_name).filter(Boolean))].sort();
   const companies = [...new Set(reports.map(r => r.company).filter(Boolean))].sort();
-  $('#app').innerHTML = `<header><h1>דיווח עבודות – ניהול</h1>
-    <button class="btn" id="th">🌓</button><button class="btn" id="rf">רענון</button><button class="btn" id="lo">יציאה</button></header>
-    <main>${extra}
-    <div class="stats" id="stats"></div>
-    <input class="search" id="q" placeholder="חיפוש לפי קבלן, פרויקט, עיר, כתובת, תאריך או מזהה" value="${esc(query)}">
-    <div class="filters">
-      <select id="fc"><option value="">כל הקבלנים</option>${names.map(n => `<option value="${esc(n)}"${n === fContractor ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <select id="fk"><option value="">כל החברות</option>${companies.map(n => `<option value="${esc(n)}"${n === fCompany ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <label>מתאריך <input type="date" id="ff" value="${esc(fFrom)}"></label>
-      <label>עד <input type="date" id="ft" value="${esc(fTo)}"></label>
-      <button class="btn" id="fx">ניקוי סינון</button>
-    </div>
-    <div class="bar"><div class="tabs"><button class="btn" id="tl">רשימה</button><button class="btn" id="tm">מפה 📍</button></div><div class="spacer"></div>
-      <button class="btn" id="e1">ייצוא לאקסל</button><button class="btn" id="e2">ייצוא פרטים מלאים</button></div>
-    <div id="list"></div></main>`;
-  $('#th').onclick = () => { const d = document.documentElement; const dark = getComputedStyle(d).getPropertyValue('--bg').trim() === '#0e1420'; d.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('dash_theme', d.dataset.theme); } catch (e) {} };
+  $('#app').innerHTML = `
+    <header>
+      <div class="brand">
+        <div class="brand-icon">פ</div>
+        <h1>מערכת ניהול ובקרת שטח<small>פורטל דיווחים, תיעוד והתחשבנות</small></h1>
+      </div>
+      <button class="btn" id="th" title="החלפת ערכת נושא">🌓</button>
+      <button class="btn" id="rf">🔄 רענון</button>
+      <button class="btn bad" id="lo">יציאה</button>
+    </header>
+    <main>
+      ${extra}
+      <div class="stats" id="stats"></div>
+      <div class="controls-card">
+        <div class="search-wrap">
+          <input class="search" id="q" placeholder="🔍 חיפוש מהיר לפי קבלן, פרויקט, עיר, כתובת, חברה או מזהה דיווח..." value="${esc(query)}">
+        </div>
+        <div class="filters">
+          <select id="fk"><option value="">🏢 כל החברות</option>${companies.map(n => `<option value="${esc(n)}"${n === fCompany ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
+          <select id="fc"><option value="">👷 כל הקבלנים</option>${names.map(n => `<option value="${esc(n)}"${n === fContractor ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
+          <label>מתאריך <input type="date" id="ff" value="${esc(fFrom)}"></label>
+          <label>עד <input type="date" id="ft" value="${esc(fTo)}"></label>
+          <button class="btn" id="fx">ניקוי סינון</button>
+        </div>
+      </div>
+      <div class="bar">
+        <div class="tabs">
+          <button class="btn" id="tl">📋 רשימת דיווחים</button>
+          <button class="btn" id="tg">🖼️ גלריית תמונות</button>
+          <button class="btn" id="tm">📍 מפת עבודות</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn ok" id="e1">📊 ייצוא לאקסל מעוצב (.xlsx)</button>
+      </div>
+      <div id="list"></div>
+    </main>`;
+
+  $('#th').onclick = () => {
+    const d = document.documentElement;
+    const isDark = getComputedStyle(d).getPropertyValue('--bg').trim() === '#0b1120';
+    d.dataset.theme = isDark ? 'light' : 'dark';
+    try { localStorage.setItem('dash_theme', d.dataset.theme); } catch (e) {}
+  };
   $('#rf').onclick = load;
   $('#lo').onclick = () => { saveSession(null); renderLogin(); };
   $('#q').oninput = e => { query = e.target.value; refresh(); };
@@ -199,28 +909,127 @@ function renderShell(extra = '') {
   $('#ft').onchange = e => { fTo = e.target.value; refresh(); };
   $('#fx').onclick = () => { query = ''; fCompany = fContractor = fFrom = fTo = ''; renderShell(extra); };
   $('#tl').onclick = () => { view = 'list'; refresh(); };
+  $('#tg').onclick = () => { view = 'gallery'; refresh(); };
   $('#tm').onclick = () => { view = 'map'; refresh(); };
-  $('#e1').onclick = exportSummary;
-  $('#e2').onclick = exportLong;
+  $('#e1').onclick = exportExcelStyled;
   refresh();
 }
 
 function refresh() {
   const rows = filtered();
   const contractors = new Set(rows.map(r => r.contractor_name).filter(Boolean)).size;
-  $('#stats').innerHTML = `<div class="stat"><b>${rows.length}</b><span>דיווחים${rows.length !== reports.length ? ' מתוך ' + reports.length : ''}</span></div>
-    <div class="stat"><b>${contractors}</b><span>קבלנים</span></div><div class="stat"><b>${rows.filter(gpsOf).length}</b><span>עם מיקום</span></div>`;
+  const totalPhotos = rows.reduce((acc, r) => acc + photosOf(r).length, 0);
+  $('#stats').innerHTML = `
+    <div class="stat"><b>${rows.length}</b><span>סה״כ דיווחים${rows.length !== reports.length ? ' (מתוך ' + reports.length + ')' : ''}</span></div>
+    <div class="stat"><b>${contractors}</b><span>קבלנים פעילים</span></div>
+    <div class="stat"><b>${totalPhotos}</b><span>תמונות מתועדות</span></div>
+    <div class="stat"><b>${rows.filter(gpsOf).length}</b><span>דיווחים מאומתים ב-GPS</span></div>`;
+
   $('#tl').classList.toggle('pri', view === 'list');
+  $('#tg').classList.toggle('pri', view === 'gallery');
   $('#tm').classList.toggle('pri', view === 'map');
+
+  if (view !== 'map') {
+    mapTok++;
+    if (mapObj) { mapObj.remove(); mapObj = null; }
+  }
+
   if (view === 'map') renderMap(rows);
-  else { mapTok++; if (mapObj) { mapObj.remove(); mapObj = null; } renderList(rows); }
+  else if (view === 'gallery') renderGalleryHub(rows);
+  else renderList(rows);
 }
 
 function renderList(rows) {
-  $('#list').innerHTML = rows.length ? rows.map(r => `<div class="row" data-id="${esc(r.report_id)}">
-    <div><small>תאריך</small>${esc(r.date || '—')}</div><div><small>קבלן</small>${esc(r.contractor_name || '—')}</div><div><small>פרויקט</small>${esc(r.project || '—')}</div>
-    <div class="id">${r.company ? `<span class="co">${esc(r.company)}</span> ` : ''}${esc(r.report_id)}${r.city || r.address ? ' · ' + esc([r.city, r.address].filter(Boolean).join(', ')) : ''} ${gpsOf(r) ? '<span class="gps">📍 מיקום</span>' : ''}</div></div>`).join('') : '<div class="empty">אין דיווחים להצגה</div>';
+  $('#list').innerHTML = rows.length ? rows.map(r => {
+    const phCount = photosOf(r).length;
+    const locStr = [r.city, r.address].filter(Boolean).join(', ');
+    return `<div class="row" data-id="${esc(r.report_id)}">
+      <div><small>תאריך</small><div class="val">${esc(r.date || '—')}</div></div>
+      <div><small>קבלן מבצע</small><div class="val">${esc(r.contractor_name || '—')}</div></div>
+      <div><small>פרויקט / אתר</small><div class="val">${esc(r.project || '—')}</div></div>
+      <div class="meta-end">
+        ${r.company ? `<span class="badge co">${esc(r.company)}</span>` : ''}
+        <div style="display:flex;gap:6px">
+          ${phCount ? `<span class="badge ph-cnt">📷 ${phCount}</span>` : ''}
+          ${gpsOf(r) ? '<span class="badge gps">📍 מיקום</span>' : ''}
+        </div>
+      </div>
+      <div class="id-row">
+        <span style="direction:ltr;font-family:monospace">#${esc(r.report_id)}</span>
+        ${locStr ? `<span>• 📍 ${esc(locStr)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">לא נמצאו דיווחים התואמים לחיפוש או לסינון הנוכחי</div>';
+
   document.querySelectorAll('.row').forEach(el => el.onclick = () => openDetail(el.dataset.id));
+}
+
+/* Gallery Hub organized by Company / Category / Project */
+function renderGalleryHub(rows) {
+  const allItems = [];
+  rows.forEach(r => {
+    const phs = photosOf(r);
+    phs.forEach(p => {
+      allItems.push({
+        url: p.url,
+        category: p.category || 'ללא קטגוריה',
+        company: r.company || 'ללא שיוך חברה',
+        project: r.project || 'ללא שם פרויקט',
+        contractor: r.contractor_name || '',
+        date: r.date || '',
+        report_id: r.report_id
+      });
+    });
+  });
+
+  if (!allItems.length) {
+    $('#list').innerHTML = '<div class="empty">אין תמונות להצגה בסינון הנוכחי</div>';
+    return;
+  }
+
+  const groups = new Map();
+  allItems.forEach(item => {
+    const key = galleryGroupBy === 'company' ? item.company : (galleryGroupBy === 'category' ? item.category : item.project);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+
+  $('#list').innerHTML = `
+    <div class="gallery-hub-controls">
+      <span style="font-weight:700;font-size:14px">קבץ תמונות לפי:</span>
+      <select id="gb-sel" style="padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card-alt);color:var(--tx)">
+        <option value="company"${galleryGroupBy === 'company' ? ' selected' : ''}>🏢 חברה</option>
+        <option value="category"${galleryGroupBy === 'category' ? ' selected' : ''}>🏷️ קטגוריית תמונה</option>
+        <option value="project"${galleryGroupBy === 'project' ? ' selected' : ''}>📁 פרויקט</option>
+      </select>
+      <span style="color:var(--mut);font-size:13px;margin-right:auto">מציג ${allItems.length} תמונות ב-${groups.size} קבוצות</span>
+    </div>
+    ${[...groups].map(([grpName, items]) => `
+      <div class="hub-group">
+        <div class="hub-group-title">
+          <span>${esc(grpName)}</span>
+          <span class="badge ph-cnt">${items.length} תמונות</span>
+        </div>
+        <div class="photos-grid">
+          ${items.map(i => `
+            <div class="photo-card">
+              <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(i.project)} - ${esc(i.category)}')">
+              <div class="hub-photo-meta" title="${esc(i.project)} | ${esc(i.contractor)} (${esc(i.date)})">
+                <b>${esc(i.category)}</b> · ${esc(i.date)}
+              </div>
+              <div class="photo-actions">
+                <button onclick="openLightbox('${esc(i.url)}', '${esc(i.project)}')" title="הגדל">🔍 הצג</button>
+                <button onclick="sharePhoto('${esc(i.url)}', '${esc(i.project)}')" title="שתף">📤 שלח</button>
+                <button onclick="openDetail('${esc(i.report_id)}')" title="פתח דיווח">📄 דיווח</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
+
+  $('#gb-sel').onchange = e => { galleryGroupBy = e.target.value; renderGalleryHub(rows); };
 }
 
 function ensureLeaflet() {
@@ -238,50 +1047,141 @@ async function renderMap(rows) {
   const tok = ++mapTok;
   const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
   if (mapObj) { mapObj.remove(); mapObj = null; }
-  $('#list').innerHTML = `<div id="map" style="height:62vh;border-radius:14px;border:1px solid var(--line)"></div>` +
-    (pts.length ? '' : '<div class="empty">אין דיווחים עם מיקום בסינון הנוכחי. מיקום נשמר רק בדיווחים חדשים, כשהמכשיר אישר גישה למיקום.</div>');
+  $('#list').innerHTML = `<div id="map" style="height:64vh;border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-md)"></div>` +
+    (pts.length ? '' : '<div class="empty">אין דיווחים עם מיקום GPS בסינון הנוכחי.</div>');
   try { await ensureLeaflet(); } catch (e) { if (tok === mapTok) $('#list').innerHTML = '<div class="err">טעינת המפה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.</div>'; return; }
   if (tok !== mapTok || !$('#map')) return;
   mapObj = L.map('map').setView([31.5, 34.9], 8);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
   const bounds = [];
   pts.forEach(({ r, g }) => {
-    L.marker([g.latitude, g.longitude]).addTo(mapObj).bindPopup(`<div dir="rtl"><b>${esc(r.project || 'דיווח')}</b><br>${esc(r.contractor_name || '')} · ${esc(r.date || '')}<br>
-      <button data-open="${esc(r.report_id)}" style="margin-top:6px">פתיחת דיווח</button> <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}">Google Maps</a></div>`);
+    L.marker([g.latitude, g.longitude]).addTo(mapObj).bindPopup(`<div dir="rtl" style="font-family:Heebo,sans-serif">
+      <b style="font-size:14px">${esc(r.project || 'דיווח')}</b><br>
+      <span style="color:#64748b">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span><br>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer">פתיחת דיווח</button>
+        <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" style="padding:4px 8px;background:#f1f5f9;border-radius:6px;text-decoration:none;color:#0f172a">ניווט</a>
+      </div>
+    </div>`);
     bounds.push([g.latitude, g.longitude]);
   });
-  if (bounds.length) mapObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+  if (bounds.length) mapObj.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   mapObj.on('popupopen', e => { const b = e.popup.getElement().querySelector('[data-open]'); if (b) b.onclick = () => openDetail(b.dataset.open); });
 }
 
-function csv(rows) {
-  const cell = c => {
-    c = String(c ?? '');
-    if (/^[=+@]/.test(c) || /^-(?![\d.])/.test(c)) c = "'" + c;
-    return /[",\n\r]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
-  };
-  return '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n');
-}
-function download(name, text) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-}
-const joinV = v => Array.isArray(v) ? v.join(', ') : v;
+/* Professional Styled Excel (.xlsx) Export with Multi-Sheet & Auto Column Widths */
+const joinV = v => Array.isArray(v) ? v.join(', ') : (v ?? '');
 
-function exportSummary() {
-  const head = ['מזהה דיווח', 'תאריך', 'קבלן', 'פרויקט', 'עיר', 'כתובת', 'חברה', 'קו רוחב', 'קו אורך', 'דיוק (מטר)', 'קישור למפה', 'מספר תמונות', 'פרטי העבודה', 'קישורי תמונות'];
-  const body = filtered().map(r => { const g = gpsOf(r), ph = photosOf(r); return [r.report_id, r.date, r.contractor_name, r.project, r.city, r.address, r.company,
-    g ? g.latitude : '', g ? g.longitude : '', g && g.accuracy != null ? Math.round(g.accuracy) : '', g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '',
-    ph.length, linesOf(r).map(([k, v]) => k + ': ' + joinV(v)).join(' | '), ph.map(p => p.url).join('\n')]; });
-  download(`דיווחים-${today()}.csv`, csv([head, ...body]));
-}
+function exportExcelStyled() {
+  const rows = filtered();
+  if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
 
-function exportLong() {
-  const head = ['מזהה דיווח', 'תאריך', 'קבלן', 'פרויקט', 'עיר', 'כתובת', 'שדה', 'ערך'];
-  const body = [];
-  filtered().forEach(r => { const ls = linesOf(r); (ls.length ? ls : [['', '']]).forEach(([k, v]) => body.push([r.report_id, r.date, r.contractor_name, r.project, r.city, r.address, k, joinV(v)])); });
-  download(`פרטי-עבודות-${today()}.csv`, csv([head, ...body]));
+  if (typeof XLSX === 'undefined') {
+    showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+
+  // Sheet 1: ריכוז דיווחים ראשי
+  const summaryData = [
+    ['מזהה דיווח', 'תאריך ביצוע', 'חברה', 'קבלן מבצע', 'פרויקט', 'עיר', 'כתובת', 'סטטוס מיקום', 'קישור למפה', 'מס׳ תמונות', 'סיכום עבודות שבוצעו']
+  ];
+
+  rows.forEach(r => {
+    const g = gpsOf(r);
+    const ph = photosOf(r);
+    const workSummary = linesOf(r).map(([k, v]) => `${k}: ${joinV(v)}`).join(' | ');
+    summaryData.push([
+      r.report_id || '',
+      r.date || '',
+      r.company || '',
+      r.contractor_name || '',
+      r.project || '',
+      r.city || '',
+      r.address || '',
+      g ? 'מאומת GPS' : 'ללא מיקום',
+      g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '',
+      ph.length,
+      workSummary
+    ]);
+  });
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!views'] = [{ rightToLeft: true }];
+  wsSummary['!autofilter'] = { ref: `A1:K${summaryData.length}` };
+  wsSummary['!cols'] = [
+    { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 24 },
+    { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 55 }
+  ];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'ריכוז דיווחים');
+
+  // Sheet 2: פירוט שורות עבודה (מעולה להתחשבנות וסינון כמויות)
+  const detailsData = [
+    ['מזהה דיווח', 'תאריך', 'חברה', 'קבלן מבצע', 'פרויקט', 'עיר', 'סעיף / סוג עבודה', 'כמות / ערך מדווח']
+  ];
+  rows.forEach(r => {
+    const ls = linesOf(r);
+    if (ls.length) {
+      ls.forEach(([k, v]) => {
+        detailsData.push([
+          r.report_id || '',
+          r.date || '',
+          r.company || '',
+          r.contractor_name || '',
+          r.project || '',
+          r.city || '',
+          k || '',
+          joinV(v)
+        ]);
+      });
+    } else {
+      detailsData.push([
+        r.report_id || '', r.date || '', r.company || '', r.contractor_name || '',
+        r.project || '', r.city || '', '—', '—'
+      ]);
+    }
+  });
+
+  const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
+  wsDetails['!views'] = [{ rightToLeft: true }];
+  wsDetails['!autofilter'] = { ref: `A1:H${detailsData.length}` };
+  wsDetails['!cols'] = [
+    { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 24 }, { wch: 15 }, { wch: 28 }, { wch: 25 }
+  ];
+  XLSX.utils.book_append_sheet(wb, wsDetails, 'פירוט עבודות להתחשבנות');
+
+  // Sheet 3: אינדקס תמונות וקישורים ישירים
+  const photosData = [
+    ['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'קטגוריית תמונה', 'קישור ישיר לתמונה']
+  ];
+  rows.forEach(r => {
+    photosOf(r).forEach(p => {
+      photosData.push([
+        r.report_id || '',
+        r.date || '',
+        r.company || '',
+        r.contractor_name || '',
+        r.project || '',
+        p.category || 'כללי',
+        p.url
+      ]);
+    });
+  });
+
+  if (photosData.length > 1) {
+    const wsPhotos = XLSX.utils.aoa_to_sheet(photosData);
+    wsPhotos['!views'] = [{ rightToLeft: true }];
+    wsPhotos['!autofilter'] = { ref: `A1:G${photosData.length}` };
+    wsPhotos['!cols'] = [
+      { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 24 }, { wch: 20 }, { wch: 60 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsPhotos, 'תיעוד תמונות');
+  }
+
+  XLSX.writeFile(wb, `דוח-עבודות-מרוכז-${today()}.xlsx`);
+  showToast('קובץ האקסל המעוצב הורד בהצלחה!');
 }
 
 const photoUrl = (id, name) => `${SB}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(id)}/${encodeURIComponent(name)}`;
@@ -295,49 +1195,154 @@ async function listPhotos(id) {
 }
 
 function fmt(k, v) {
-  if (v && typeof v === 'object') return `<pre style="margin:0;white-space:pre-wrap">${esc(JSON.stringify(v, null, 1))}</pre>`;
+  if (v && typeof v === 'object') return `<pre style="margin:0;white-space:pre-wrap;font-size:12px">${esc(JSON.stringify(v, null, 1))}</pre>`;
   if (k === 'created_at' && v) { const d = new Date(v); if (!isNaN(d)) return esc(d.toLocaleString('he-IL')); }
   return esc(v ?? '—');
 }
 
+/* Structured Executive Report Modal */
 async function openDetail(id) {
-  const r = reports.find(x => x.report_id === id); if (!r) return;
-  const keys = Object.keys(r).filter(k => !['id', 'photos', 'details'].includes(k)).sort((a, b) => (a in LABELS ? Object.keys(LABELS).indexOf(a) : 99) - (b in LABELS ? Object.keys(LABELS).indexOf(b) : 99));
+  const r = reports.find(x => x.report_id === id);
+  if (!r) return;
+
+  const priorityKeys = ['date', 'company', 'contractor_name', 'project', 'city', 'address', 'created_at'];
+  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', ...priorityKeys].includes(k));
+  const allMetaKeys = [...priorityKeys.filter(k => k in r), ...extraKeys];
+
   const lines = linesOf(r);
   const gps = gpsOf(r);
   const mapUrl = gps ? `https://www.google.com/maps?q=${gps.latitude},${gps.longitude}` : '';
-  const linesHtml = lines.length ? `<div class="sub">פרטי העבודה</div><div class="kv">${lines.map(([k, v]) => `<div>${esc(k)}</div><div>${esc(Array.isArray(v) ? v.join(', ') : v)}</div>`).join('')}</div>` : '';
-  $('#detail').innerHTML = `<h3>${esc(r.project || 'דיווח')}</h3>
-    <div class="kv">${keys.map(k => `<div>${esc(LABELS[k] || k)}</div><div>${fmt(k, r[k])}</div>`).join('')}${gps ? `<div>מיקום</div><div><a href="${mapUrl}" target="_blank" rel="noopener">פתיחה במפה</a></div>` : ''}</div>
-    ${linesHtml}
-    <div id="ph" class="msg">טוען תמונות…</div>
-    <div class="actions"><button class="btn pri" id="pr">הורדת PDF / הדפסה</button><button class="btn bad" id="del">מחיקה</button><button class="btn" id="cl">סגירה</button></div>`;
+
+  const metaCardsHtml = allMetaKeys.map(k => `
+    <div class="meta-box">
+      <div class="lbl">${esc(LABELS[k] || k)}</div>
+      <div class="val">${fmt(k, r[k])}</div>
+    </div>
+  `).join('') + (gps ? `
+    <div class="meta-box" style="border-color:var(--ok)">
+      <div class="lbl">מיקום GPS מאומת</div>
+      <div class="val"><a href="${mapUrl}" target="_blank" rel="noopener" style="color:var(--ok);text-decoration:none;font-weight:700">📍 פתח ב-Google Maps ↗</a></div>
+    </div>
+  ` : '');
+
+  const workTableHtml = lines.length ? `
+    <div class="detail-section">
+      <div class="section-title">
+        <span>🛠️ פירוט עבודות וביצוע בשטח</span>
+        <span class="badge co">${lines.length} סעיפים</span>
+      </div>
+      <table class="work-table">
+        <thead><tr><th>סעיף / פעולה שבוצעה</th><th>פירוט / כמות מדווחת</th></tr></thead>
+        <tbody>
+          ${lines.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(Array.isArray(v) ? v.join(', ') : v)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
+  $('#detail').innerHTML = `
+    <div class="sheet-header">
+      <div>
+        <h3>${esc(r.project || 'דוח ביצוע עבודה')}</h3>
+        <span class="sub-id">מזהה דיווח: ${esc(r.report_id)}</span>
+      </div>
+      <button class="sheet-close" id="cl-top" title="סגירה">✕</button>
+    </div>
+
+    <div class="sheet-body">
+      <div class="detail-section">
+        <div class="section-title"><span>📋 פרטי התקשרות ומיקום</span></div>
+        <div class="meta-grid">${metaCardsHtml}</div>
+      </div>
+
+      ${workTableHtml}
+
+      <div class="detail-section" style="margin-bottom:0">
+        <div class="section-title"><span>📷 תיעוד מצולם מהשטח</span></div>
+        <div id="ph" class="msg">טוען תמונות מהשרת…</div>
+      </div>
+    </div>
+
+    <div class="actions-footer">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה</button>
+        <button class="btn" id="cl">סגירה</button>
+      </div>
+      <button class="btn bad" id="del">🗑️ מחיקת דיווח</button>
+    </div>
+  `;
+
   $('#modal').classList.add('open');
-  $('#cl').onclick = () => $('#modal').classList.remove('open');
+  const closeModal = () => $('#modal').classList.remove('open');
+  $('#cl').onclick = closeModal;
+  $('#cl-top').onclick = closeModal;
 
   let items = (Array.isArray(parseJ(r.photos)) ? parseJ(r.photos) : []).filter(x => x && x.url).map(x => ({ cat: x.category || '', url: x.url }));
   const names = await listPhotos(id);
   if (!items.length) items = names.map(n => ({ cat: '', url: photoUrl(id, n) }));
-  const groups = new Map(); items.forEach(i => { if (!groups.has(i.cat)) groups.set(i.cat, []); groups.get(i.cat).push(i); });
+
+  const groups = new Map();
+  items.forEach(i => {
+    const c = i.cat || 'תיעוד כללי';
+    if (!groups.has(c)) groups.set(c, []);
+    groups.get(c).push(i);
+  });
+
   $('#ph').className = '';
-  $('#ph').innerHTML = items.length ? [...groups].map(([cat, arr]) => `${cat ? `<div class="sub">${esc(cat)}</div>` : ''}<div class="photos">${arr.map(i => `<img loading="lazy" src="${esc(i.url)}" onclick="window.open(this.src)">`).join('')}</div>`).join('') : '<div class="msg">אין תמונות לדיווח זה</div>';
+  $('#ph').innerHTML = items.length ? [...groups].map(([cat, arr]) => `
+    <div class="gallery-cat-header">
+      <span>${esc(cat)}</span>
+      <span style="font-size:12px;color:var(--mut)">${arr.length} תמונות</span>
+    </div>
+    <div class="photos-grid">
+      ${arr.map(i => `
+        <div class="photo-card">
+          <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')">
+          <div class="photo-actions">
+            <button onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')}')" title="הגדל תמונה">🔍 הגדל</button>
+            <button onclick="sharePhoto('${esc(i.url)}', '${esc(r.project || 'דיווח')}')" title="שלח בוואטסאפ / שתף">📤 שלח</button>
+            <button onclick="copyPhotoLink('${esc(i.url)}')" title="העתק קישור">🔗</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('') : '<div class="empty" style="padding:20px">לא צורפו תמונות לדיווח זה</div>';
 
   $('#pr').onclick = () => {
-    $('#sheet').innerHTML = `<div class="p first"><h2>${esc(r.project || 'דיווח')}</h2>${keys.map(k => `<p><b>${esc(LABELS[k] || k)}:</b> ${fmt(k, r[k])}</p>`).join('')}` +
-      (lines.length ? `<h3>פרטי העבודה</h3>${lines.map(([k, v]) => `<p><b>${esc(k)}:</b> ${esc(Array.isArray(v) ? v.join(', ') : v)}</p>`).join('')}` : '') + `</div>` +
+    $('#sheet').innerHTML = `
+      <div class="p first">
+        <h1 style="margin:0 0 6px;color:#0f4c81">${esc(r.project || 'דוח ביצוע עבודה')}</h1>
+        <p style="color:#64748b;margin:0 0 18px">מזהה דיווח: ${esc(r.report_id)}</p>
+        <table>
+          <tbody>
+            ${allMetaKeys.map(k => `<tr><th style="width:30%">${esc(LABELS[k] || k)}</th><td>${fmt(k, r[k])}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        ${lines.length ? `
+          <h3 style="margin:22px 0 8px;color:#0f4c81">פירוט עבודות שבוצעו</h3>
+          <table>
+            <thead><tr><th style="width:40%">סעיף</th><th>פירוט / כמות</th></tr></thead>
+            <tbody>${lines.map(([k, v]) => `<tr><td><b>${esc(k)}</b></td><td>${esc(Array.isArray(v) ? v.join(', ') : v)}</td></tr>`).join('')}</tbody>
+          </table>
+        ` : ''}
+      </div>` +
       items.map(i => `<div class="p"><div style="text-align:center">${i.cat ? `<h3>${esc(i.cat)}</h3>` : ''}<img src="${esc(i.url)}"></div></div>`).join('');
     setTimeout(() => window.print(), 300);
   };
+
   $('#del').onclick = async () => {
-    if (!confirm('למחוק את הדיווח ואת התמונות שלו? אי אפשר לשחזר.')) return;
+    if (!confirm('למחוק את הדיווח ואת כל התמונות שלו לצמיתות?')) return;
     const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
     const gone = d.ok ? await d.json() : [];
-    if (!d.ok || !gone.length) { alert('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה (ראה SQL בהודעת השגיאה).'); return; }
+    if (!d.ok || !gone.length) { alert('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה.'); return; }
     if (names.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: names.map(n => `${id}/${n}`) }) }).catch(() => {});
     reports = reports.filter(x => x.report_id !== id);
-    $('#modal').classList.remove('open'); renderShell();
+    closeModal();
+    renderShell();
+    showToast('הדיווח נמחק מהמערכת');
   };
 }
+
 $('#modal').onclick = e => { if (e.target.id === 'modal') e.target.classList.remove('open'); };
 
 function start() {
