@@ -861,8 +861,8 @@ function renderLogin(msg, ok) {
       </div>
     </div>
     <p>הזן פרטי גישה מורשים לכניסה למערכת</p>
-    <input id="em" type="email" placeholder="כתובת אימייל" autocomplete="username" required>
-    <input id="pw" type="password" placeholder="סיסמה" autocomplete="current-password" required>
+    <input id="em" name="username" type="email" inputmode="email" placeholder="כתובת אימייל" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+    <input id="pw" name="password" type="password" placeholder="סיסמה" autocomplete="current-password" required>
     ${msg ? `<div class="err${ok ? ' ok' : ''}">${esc(msg)}</div>` : ''}
     <button class="btn pri" style="width:100%;padding:12px;font-size:15px">כניסה למערכת</button>
     <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
@@ -1604,7 +1604,8 @@ function exportExcelStyled() {
   const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
   const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
   const extraKeys = [];
-  const addExtra = k => { if (!extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
+  const isPhotoKey = k => /תמונ|photo|image|img|pic/i.test(k);
+  const addExtra = k => { if (!isPhotoKey(k) && !extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
   rows.forEach(r => {
     Object.keys(r).forEach(k => { if (!skip.has(k) && r[k] != null && r[k] !== '') addExtra(k); });
     const dt = parseJ(r.details);
@@ -1679,15 +1680,6 @@ function exportExcelStyled() {
   const w3 = XLSX.utils.aoa_to_sheet(s3);
   styleWorksheet(w3, [36, 14, 14, 16], { numCols: [1, 2, 3] });
   XLSX.utils.book_append_sheet(wb, w3, 'סיכום סעיפים');
-
-  // גליון אינדקס תמונות – שם התמונה כולל מספר קלוז׳ר / ארונית
-  const s4 = [['מזהה דיווח', 'תאריך', 'חברה', 'קבלן', 'פרויקט', 'שם התמונה', 'קישור']];
-  rows.forEach(r => photosOf(r).forEach(p => s4.push([r.report_id || '', r.date || '', r.company || '', r.contractor_name || '', r.project || '', photoName(r, p), p.url])));
-  if (s4.length > 1) {
-    const w4 = XLSX.utils.aoa_to_sheet(s4);
-    styleWorksheet(w4, [16, 13, 16, 18, 24, 34, 10], { linkCols: [6], groupCol: 0, centerCols: [1] });
-    XLSX.utils.book_append_sheet(wb, w4, 'אינדקס תמונות');
-  }
 
   XLSX.writeFile(wb, `דוח-בקרה-שורה-לדיווח-${today()}.xlsx`);
   showToast('קובץ האקסל המעוצב הורד בהצלחה!');
