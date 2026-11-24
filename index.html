@@ -1009,7 +1009,12 @@ async function apprSet(id, status, ev) {
     note = n.trim();
   } else {
     const q = status === 'rejected' ? 'סיבה / הערה (אופציונלי):' : (status === 'approved' ? 'הערה לאישור (אופציונלי):' : 'הערה לדיווח:');
-    const n = prompt(q, note); if (n === null) return;
+    let n = prompt(q, note); if (n === null) return;
+    // בדיווח שסומן "לא אושר" ההערה נשארת חובה גם בעריכתה
+    if (status === 'note' && r.approval_status === 'rejected') {
+      while (n !== null && !n.trim()) n = prompt('בדיווח שלא אושר ההערה היא שדה חובה:', note);
+      if (n === null) return;
+    }
     note = n.trim();
     if (status === 'note') status = r.approval_status || null;
   }
