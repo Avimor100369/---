@@ -381,7 +381,7 @@ header { -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: sat
 .appr-b { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--line, #e2e8f0); color: var(--mut, #64748b); }
 .appr-b.ok { background: var(--ok-bg, #dcfce7); color: var(--ok, #16a34a); }
 .appr-b.bad { background: #fee2e2; color: #dc2626; }
-.appr-btn { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line, #e2e8f0); background: var(--card, #fff); color: var(--tx, #0f172a); cursor: pointer; }
+.appr-btn { white-space: nowrap; font: inherit; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line, #e2e8f0); background: var(--card, #fff); color: var(--tx, #0f172a); cursor: pointer; }
 .appr-btn.ok { color: var(--ok, #16a34a); border-color: var(--ok, #16a34a); }
 .appr-btn.bad { color: #dc2626; border-color: #dc2626; }
 .appr-btn:hover { background: var(--pri-light, #e0f2fe); }
@@ -968,7 +968,7 @@ const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn
   <button type="button" class="appr-btn bad" onclick="apprSet('${esc(id)}','rejected',event)">✕ לא אשר</button>
   <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','note',event)">💬 הערה</button>
   <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
-const apprRow = r => `<div class="appr" onclick="event.stopPropagation()">${apprBadge(r)}${apprButtons(r.report_id)}${r.approval_note ? `<div class="appr-note">💬 ${esc(r.approval_note)}</div>` : ''}</div>`;
+const apprRow = r => `<div class="appr" style="grid-column:1/-1;flex-direction:row;flex-wrap:wrap" onclick="event.stopPropagation()">${apprBadge(r)}${apprButtons(r.report_id)}${r.approval_note ? `<div class="appr-note">💬 ${esc(r.approval_note)}</div>` : ''}</div>`;
 async function apprSet(id, status, ev) {
   if (ev) ev.stopPropagation();
   const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
@@ -1649,7 +1649,9 @@ function exportExcelStyled() {
   if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
   if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
 
-  const workLines = r => linesOf(r).filter(([k]) => !UNIT_NUM_RE.test(String(k)));  // מס׳ גוב/עמוד מופיע בעמודה משלו
+  // שורות שהן רק תמונות (למשל "תמונת סל איסוף: 1 תמונות") לא נכנסות לאקסל; מס׳ גוב/עמוד מופיע בעמודה משלו
+  const isPhotoLine = (k, v) => /תמונ|צילום|photo|image|img|pic/i.test(String(k)) || /^\s*(\d+\s*)?תמונ(ה|ות)\s*(\d+)?\s*$/.test(String(joinV(v)));
+  const workLines = r => linesOf(r).filter(([k, v]) => !UNIT_NUM_RE.test(String(k)) && !isPhotoLine(k, v));
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
