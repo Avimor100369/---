@@ -1840,7 +1840,7 @@ async function openDetail(id) {
     <div class="actions-footer">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
-        <button class="btn" id="sv">${isSaved(r) ? '✅ נשמר – שמירה בשם שוב' : '💾 שמירה בשם…'}</button>
+        <button class="btn" id="sv">${isSaved(r) ? '✅ נשמר – שמירה בשם שוב' : '💾 שמירה בשם (PDF)…'}</button>
         <button class="btn" id="cl">סגירה</button>
       </div>
       ${userRole === 'admin' ? '<button class="btn bad" id="del">🗑️ מחיקת דיווח</button>' : ''}
@@ -1920,41 +1920,61 @@ async function openDetail(id) {
     setTimeout(() => window.print(), 350);
   };
 
-  // שמירה בשם: קובץ דוח עצמאי (HTML עם התמונות מוטמעות) – בכרום/אדג׳ נפתח חלון לבחירת נתיב ושם
+  // שמירה בשם: קובץ PDF אמיתי. בכרום/אדג׳ במחשב נפתח חלון לבחירת תיקייה ושם; בשאר הדפדפנים הקובץ יורד לתיקיית ההורדות.
   $('#sv').onclick = async () => {
     const btn = $('#sv'), label = btn.textContent;
-    const name = `דוח-${String(r.project || 'ביצוע').replace(/[\\/:*?"<>|]/g, '_')}-${String(r.report_id).replace(/[\\/:*?"<>|]/g, '_')}.html`;
+    const name = `דוח-${String(r.project || 'ביצוע').replace(/[\\/:*?"<>|]/g, '_')}-${String(r.report_id).replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
     let handle = null;
     if (window.showSaveFilePicker) {
-      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'דוח ביצוע (HTML)', accept: { 'text/html': ['.html'] } }] }); }
+      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] }); }
       catch (e) { if (e && e.name === 'AbortError') return; }
     }
-    btn.disabled = true; btn.textContent = 'מכין קובץ…';
+    btn.disabled = true; btn.textContent = 'מכין PDF…';
+    let host = null;
     try {
+      if (!window.html2pdf) await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        sc.onload = res; sc.onerror = () => rej(new Error('lib')); document.head.appendChild(sc);
+      });
+      if (!window.html2pdf) throw new Error('lib');
       const urlMap = {};
       await Promise.all(items.map(async i => {
         try {
           const blob = await (await fetch(i.url)).blob();
           urlMap[i.url] = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
-        } catch (e) { /* נשאר קישור לתמונה */ }
+        } catch (e) { /* ללא הטמעה – נשאר קישור */ }
       }));
-      const css = 'body{margin:0;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif}' +
-        '#sheet .p{min-height:94vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;page-break-after:always}' +
-        '#sheet .p:last-child{page-break-after:auto}#sheet .p img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
-        '#sheet .first{display:block;min-height:auto;padding:24px}' +
-        '#sheet .pdf-banner{background:#0f4c81;color:#fff;padding:18px 24px;border-radius:10px;margin-bottom:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
-        '#sheet table{width:100%;border-collapse:collapse;margin-top:12px}#sheet th,#sheet td{border:1px solid #cbd5e1;padding:9px 12px;text-align:right;font-size:13px}' +
-        '#sheet th{background:#f1f5f9;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}';
-      const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(r.project || 'דוח ביצוע עבודה')}</title><style>${css}</style></head><body><div id="sheet">${buildSheet(u => urlMap[u] || u)}</div></body></html>`;
-      const file = new Blob([html], { type: 'text/html;charset=utf-8' });
-      if (handle) { const w = await handle.createWritable(); await w.write(file); await w.close(); }
-      else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-      showToast('הקובץ נשמר');
+      host = document.createElement('div');
+      host.setAttribute('dir', 'rtl');
+      host.style.cssText = 'position:absolute;left:-10000px;top:0;width:718px;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif';
+      host.innerHTML = '<style>' +
+        '.p{page-break-after:always;display:block;text-align:center;padding:0;min-height:0}.p:last-child{page-break-after:auto}' +
+        '.p img{max-width:100%;max-height:880px;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
+        '.first{text-align:right}.pdf-banner{background:#0f4c81;color:#fff;padding:18px 24px;border-radius:10px;margin-bottom:18px}' +
+        'table{width:100%;border-collapse:collapse;margin-top:12px}tr{page-break-inside:avoid}' +
+        'th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:right;font-size:13px}th{background:#f1f5f9;font-weight:700}' +
+        '</style>' + buildSheet(u => urlMap[u] || u);
+      document.body.appendChild(host);
+      const blob = await window.html2pdf().set({
+        margin: [10, 10, 10, 10], filename: name,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      }).from(host).outputPdf('blob');
+      if (handle) { const w = await handle.createWritable(); await w.write(blob); await w.close(); }
+      else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+      showToast('ה-PDF נשמר');
       await markSaved(r);
       refresh();
       btn.disabled = false; btn.textContent = '✅ נשמר – שמירה בשם שוב';
       return;
-    } catch (e) { showToast('השמירה נכשלה'); }
+    } catch (e) {
+      showToast('יצירת ה-PDF נכשלה – נפתח חלון ההדפסה, בחר "שמור כ-PDF"');
+      $('#sheet').innerHTML = buildSheet();
+      setTimeout(() => window.print(), 350);
+    } finally { if (host) host.remove(); }
     btn.disabled = false; btn.textContent = label;
   };
 
