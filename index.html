@@ -377,6 +377,16 @@ header { -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: sat
 .role-pill { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px; background: var(--pri-light); color: var(--pri); font-size: 11px; font-weight: 800; }
 ::selection { background: var(--pri-light); color: var(--pri); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.appr { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.appr-b { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--line, #e2e8f0); color: var(--mut, #64748b); }
+.appr-b.ok { background: var(--ok-bg, #dcfce7); color: var(--ok, #16a34a); }
+.appr-b.bad { background: #fee2e2; color: #dc2626; }
+.appr-btn { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line, #e2e8f0); background: var(--card, #fff); color: var(--tx, #0f172a); cursor: pointer; }
+.appr-btn.ok { color: var(--ok, #16a34a); border-color: var(--ok, #16a34a); }
+.appr-btn.bad { color: #dc2626; border-color: #dc2626; }
+.appr-btn:hover { background: var(--pri-light, #e0f2fe); }
+.appr-note { flex-basis: 100%; font-size: 12px; color: var(--mut, #64748b); }
+.v-done { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok, #16a34a); color: #fff; font-size: 13px; font-weight: 900; line-height: 1; flex: none; }
 .nc-chip { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg); padding: 2px 8px; border-radius: 6px; }
 .nc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 .nc-actions a, .nc-actions button { font: inherit; font-size: 15px; font-weight: 700; padding: 11px 20px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--tx); cursor: pointer; text-decoration: none; flex: 1 1 140px; box-shadow: var(--shadow-sm, 0 1px 2px rgba(15,23,42,.06)); }
@@ -940,6 +950,7 @@ ${esc(SQL_HINT)}</div>`);
   const seen = new Map();
   rows.forEach(x => { if (!seen.has(x.report_id)) seen.set(x.report_id, x); });
   reports = [...seen.values()];
+  lastRefresh = Date.now();
   renderShell();
 }
 
@@ -948,6 +959,46 @@ let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0
 
 function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
 function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return g && g.latitude != null && g.longitude != null ? g : null; }
+const canApprove = () => userRole === 'admin' || userRole === 'manager';
+const apprBadge = r => r.approval_status === 'approved' ? '<span class="appr-b ok">✓ אושר</span>'
+  : r.approval_status === 'rejected' ? '<span class="appr-b bad">✕ לא אושר</span>' : '<span class="appr-b">⏳ ממתין לאישור</span>';
+const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn ok" onclick="apprSet('${esc(id)}','approved',event)">✓ אשר</button>
+  <button type="button" class="appr-btn bad" onclick="apprSet('${esc(id)}','rejected',event)">✕ לא אשר</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','note',event)">💬 הערה</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
+const apprRow = r => `<div class="appr" onclick="event.stopPropagation()">${apprBadge(r)}${apprButtons(r.report_id)}${r.approval_note ? `<div class="appr-note">💬 ${esc(r.approval_note)}</div>` : ''}</div>`;
+async function apprSet(id, status, ev) {
+  if (ev) ev.stopPropagation();
+  const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
+  let note = r.approval_note || '';
+  if (status === 'clear') { if (!confirm('לאפס את סטטוס האישור וההערה?')) return; status = null; note = ''; }
+  else {
+    const q = status === 'rejected' ? 'סיבה / הערה (אופציונלי):' : (status === 'approved' ? 'הערה לאישור (אופציונלי):' : 'הערה לדיווח:');
+    const n = prompt(q, note); if (n === null) return;
+    note = n.trim();
+    if (status === 'note') status = r.approval_status || null;
+  }
+  const body = { approval_status: status, approval_note: note || null, approved_by: status || note ? (session.email || null) : null, approved_at: status || note ? new Date().toISOString() : null };
+  let ok = false;
+  try {
+    const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) });
+    ok = d.ok && (await d.json()).length > 0;
+  } catch (e) {}
+  if (!ok) { alert('השמירה נכשלה. ודא שהרצת את supabase_approvals.sql ושיש לך הרשאת מנהל.'); return; }
+  Object.assign(r, body);
+  showToast(status === 'approved' ? 'הדיווח אושר' : status === 'rejected' ? 'הדיווח סומן כלא מאושר' : 'נשמר');
+  refresh();
+  if ($('#modal') && $('#modal').classList.contains('open')) openDetail(id);
+}
+const SAVED_KEY = 'dash_saved_reports';
+const savedLocal = () => { try { return new Set(JSON.parse(localStorage.getItem(SAVED_KEY) || '[]')); } catch (e) { return new Set(); } };
+const isSaved = r => !!r.exported_at || savedLocal().has(r.report_id);
+async function markSaved(r) {
+  r.exported_at = r.exported_at || new Date().toISOString();
+  try { const st = savedLocal(); st.add(r.report_id); localStorage.setItem(SAVED_KEY, JSON.stringify([...st].slice(-3000))); } catch (e) {}
+  // שמירה גם בשרת (מסתנכרן בין מכשירים) – רק אם נוספה העמודה exported_at; אחרת נשאר במכשיר הזה
+  try { await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ exported_at: r.exported_at }) }); } catch (e) {}
+}
 function ncText(g) { return g ? `${(+g.latitude).toFixed(6)}, ${(+g.longitude).toFixed(6)}` : ''; }
 function copyNC(t) { navigator.clipboard.writeText(t).then(() => showToast('הנ.צ הועתק: ' + t)).catch(() => { prompt('העתק נ.צ:', t); }); }
 const UNIT_WORD = '(גוב|גובים|עמוד|עמודים|manhole|pole)';
@@ -1328,10 +1379,12 @@ function renderList(rows) {
         </div>
       </div>
       <div class="id-row">
+        ${isSaved(r) ? '<span class="v-done" title="הדוח נשמר בשם">✓</span>' : ''}
         <span style="direction:ltr;font-family:monospace;font-weight:600">#${esc(r.report_id)}</span>
         ${locStr ? `<span>• 📍 ${esc(locStr)}</span>` : ''}
         ${gpsOf(r) ? `<span class="nc-chip" title="נקודת ציון">🧭 נ.צ ${esc(ncText(gpsOf(r)))}</span>` : ''}
       </div>
+      ${apprRow(r)}
     </div>`;
   }).join('') : '<div class="empty">לא נמצאו דיווחים התואמים לחיפוש או לסינון הנוכחי</div>';
 
@@ -1602,7 +1655,7 @@ function exportExcelStyled() {
 
   // כל שדות המידע הנוספים של הדיווח (מעבר לשדות הבסיס) – נאספים אוטומטית
   const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
-  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
+  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
   const extraKeys = [];
   const isPhotoKey = k => /תמונ|photo|image|img|pic/i.test(k);
   const addExtra = k => { if (!isPhotoKey(k) && !extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
@@ -1659,18 +1712,19 @@ function exportExcelStyled() {
   // גליון 1 – דיווחים: שורה אחת לכל דיווח; תאריך, פרויקט, עיר, כתובת ושאר שדות הטופס (עד טקסט חופשי) – כל אחד בעמודה נפרדת; המיקום בסוף
   const nI = itemCols.length, nE = extraKeys.length;
   const s1 = [['מזהה דיווח', 'חברה / לקוח', 'קבלן מבצע', 'תאריך ביצוע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד',
-    ...itemCols.map(c => c.label), ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', ...locHead]];
+    ...itemCols.map(c => c.label), ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', 'סטטוס אישור', 'הערת אישור', 'אושר ע״י', 'תאריך אישור', ...locHead]];
   rows.forEach((r, i) => {
     const t = perReport[i].top;
     s1.push([r.report_id || '', r.company || '', r.contractor_name || '', t.date, t.project, t.city, t.address, unitOfRow(r),
       ...itemCols.map(c => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''),
-      ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at), ...locCells(r)]);
+      ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at),
+      r.approval_status === 'approved' ? 'אושר' : r.approval_status === 'rejected' ? 'לא אושר' : 'ממתין', r.approval_note || '', r.approved_by || '', fmtCreated(r.approved_at), ...locCells(r)]);
   });
-  const cNC = 9 + nI + nE, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
+  const cNC = 13 + nI + nE, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
   const longText = l => /טקסט|הערות|הערה|תיאור|פירוט/.test(l);
   const w1 = XLSX.utils.aoa_to_sheet(s1);
   styleWorksheet(w1, [16, 16, 18, 13, 24, 14, 24, 16,
-      ...itemCols.map(c => longText(c.label) ? 42 : Math.min(26, Math.max(12, c.label.length + 3))), ...extraKeys.map(() => 18), 18, 26, 14, 14, 9],
+      ...itemCols.map(c => longText(c.label) ? 42 : Math.min(26, Math.max(12, c.label.length + 3))), ...extraKeys.map(() => 18), 18, 14, 30, 20, 18, 26, 14, 14, 9],
     { linkCols: [cMap], centerCols: [3, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: itemCols.filter(c => !longText(c.label)).map(c => 8 + itemCols.indexOf(c)) });
   XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
 
@@ -1707,13 +1761,20 @@ async function openDetail(id) {
   if (!r) return;
 
   const priorityKeys = ['date', 'company', 'contractor_name', 'project', 'city', 'address', 'created_at'];
-  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
+  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
   const allMetaKeys = [...priorityKeys.filter(k => k in r), ...extraKeys];
 
   const lines = linesOf(r);
   const gps = gpsOf(r);
   const mapUrl = gps ? `https://www.google.com/maps?q=${gps.latitude},${gps.longitude}` : '';
 
+  const apprBox = `
+    <div class="meta-box" style="grid-column:1/-1">
+      <div class="lbl">סטטוס אישור</div>
+      <div class="val" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${apprBadge(r)}${r.approved_by ? `<span style="font-size:12px;color:var(--mut)">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(new Date(r.approved_at).toLocaleString('he-IL')) : ''}</span>` : ''}</div>
+      ${r.approval_note ? `<div style="margin-top:6px;font-size:13px">💬 ${esc(r.approval_note)}</div>` : ''}
+      <div class="appr" style="margin-top:8px">${apprButtons(r.report_id)}</div>
+    </div>`;
   const metaCardsHtml = allMetaKeys.map(k => `
     <div class="meta-box">
       <div class="lbl">${esc(LABELS[k] || k)}</div>
@@ -1729,7 +1790,7 @@ async function openDetail(id) {
         <a href="https://waze.com/ul?ll=${gps.latitude},${gps.longitude}&navigate=yes" target="_blank" rel="noopener">🚗 Waze ↗</a>
       </div>
     </div>
-  ` : '');
+  ` : '') + apprBox;
 
   const workTableHtml = lines.length ? `
     <div class="detail-section">
@@ -1775,6 +1836,7 @@ async function openDetail(id) {
     <div class="actions-footer">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
+        <button class="btn" id="sv">${isSaved(r) ? '✅ נשמר – שמירה בשם שוב' : '💾 שמירה בשם…'}</button>
         <button class="btn" id="cl">סגירה</button>
       </div>
       ${userRole === 'admin' ? '<button class="btn bad" id="del">🗑️ מחיקת דיווח</button>' : ''}
@@ -1826,8 +1888,7 @@ async function openDetail(id) {
     </div>
   `).join('') : '<div class="empty" style="padding:20px">לא צורפו תמונות לדיווח זה</div>';
 
-  $('#pr').onclick = () => {
-    $('#sheet').innerHTML = `
+  const buildSheet = (srcOf = u => u) => `
       <div class="p first">
         <div class="pdf-banner">
           <div style="font-size:12px;opacity:0.85;margin-bottom:4px">פורטל ניהול ובקרת שטח • דוח ביצוע רשמי</div>
@@ -1848,8 +1909,49 @@ async function openDetail(id) {
           </table>
         ` : ''}
       </div>` +
-      items.map((i, idx) => `<div class="p"><div style="text-align:center;width:100%"><h3 style="color:#0f4c81;margin:0 0 10px">${esc(i.cat || 'תיעוד מצולם')} (${idx + 1}/${items.length})</h3><img src="${esc(i.url)}"></div></div>`).join('');
+      items.map((i, idx) => `<div class="p"><div style="text-align:center;width:100%"><h3 style="color:#0f4c81;margin:0 0 10px">${esc(i.cat || 'תיעוד מצולם')} (${idx + 1}/${items.length})</h3><img src="${esc(srcOf(i.url))}"></div></div>`).join('');
+
+  $('#pr').onclick = () => {
+    $('#sheet').innerHTML = buildSheet();
     setTimeout(() => window.print(), 350);
+  };
+
+  // שמירה בשם: קובץ דוח עצמאי (HTML עם התמונות מוטמעות) – בכרום/אדג׳ נפתח חלון לבחירת נתיב ושם
+  $('#sv').onclick = async () => {
+    const btn = $('#sv'), label = btn.textContent;
+    const name = `דוח-${String(r.project || 'ביצוע').replace(/[\\/:*?"<>|]/g, '_')}-${String(r.report_id).replace(/[\\/:*?"<>|]/g, '_')}.html`;
+    let handle = null;
+    if (window.showSaveFilePicker) {
+      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'דוח ביצוע (HTML)', accept: { 'text/html': ['.html'] } }] }); }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    btn.disabled = true; btn.textContent = 'מכין קובץ…';
+    try {
+      const urlMap = {};
+      await Promise.all(items.map(async i => {
+        try {
+          const blob = await (await fetch(i.url)).blob();
+          urlMap[i.url] = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+        } catch (e) { /* נשאר קישור לתמונה */ }
+      }));
+      const css = 'body{margin:0;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif}' +
+        '#sheet .p{min-height:94vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;page-break-after:always}' +
+        '#sheet .p:last-child{page-break-after:auto}#sheet .p img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
+        '#sheet .first{display:block;min-height:auto;padding:24px}' +
+        '#sheet .pdf-banner{background:#0f4c81;color:#fff;padding:18px 24px;border-radius:10px;margin-bottom:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+        '#sheet table{width:100%;border-collapse:collapse;margin-top:12px}#sheet th,#sheet td{border:1px solid #cbd5e1;padding:9px 12px;text-align:right;font-size:13px}' +
+        '#sheet th{background:#f1f5f9;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+      const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(r.project || 'דוח ביצוע עבודה')}</title><style>${css}</style></head><body><div id="sheet">${buildSheet(u => urlMap[u] || u)}</div></body></html>`;
+      const file = new Blob([html], { type: 'text/html;charset=utf-8' });
+      if (handle) { const w = await handle.createWritable(); await w.write(file); await w.close(); }
+      else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+      showToast('הקובץ נשמר');
+      await markSaved(r);
+      refresh();
+      btn.disabled = false; btn.textContent = '✅ נשמר – שמירה בשם שוב';
+      return;
+    } catch (e) { showToast('השמירה נכשלה'); }
+    btn.disabled = false; btn.textContent = label;
   };
 
   if ($('#del')) $('#del').onclick = async () => {
@@ -1884,8 +1986,30 @@ addEventListener('pagehide', touchSeen);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { touchSeen(); return; }
   if (lockIfStale()) renderLogin('עברו יותר מ-5 דקות – יש להתחבר מחדש.', true);
-  else touchSeen();
+  else { touchSeen(); if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); }
 });
+
+/* רענון נתונים אוטומטי כל 15 דקות (בלי לסגור חלונות פתוחים ובלי לאבד מקום) */
+const REFRESH_MS = 15 * 60 * 1000;
+let lastRefresh = Date.now();
+async function softRefresh() {
+  if (!session || !$('#list') || document.visibilityState !== 'visible') return;
+  if ($('#modal') && $('#modal').classList.contains('open')) return;        // חלון דיווח פתוח
+  if (view === 'users' || view === 'map') return;                           // מסכים שלא כדאי להפריע בהם
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;             // באמצע הקלדה
+  try {
+    let r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=2000`);
+    if (r.status === 400) r = await api(`${SB}/rest/v1/reports?select=*&limit=2000`);
+    if (!r.ok) return;
+    const rows = await r.json(), seenIds = new Map();
+    rows.forEach(x => { if (!seenIds.has(x.report_id)) seenIds.set(x.report_id, x); });
+    reports = [...seenIds.values()];
+    lastRefresh = Date.now();
+    refresh();
+  } catch (e) {}
+}
+setInterval(() => { if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); }, 60000);
 
 function start() {
   const hp = new URLSearchParams(location.hash.replace(/^#/, ''));
