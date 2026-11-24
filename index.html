@@ -2,6 +2,8 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src https://oisozmbfaebtqicleufm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Executive Control Portal – ניהול ובקרת שטח</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -810,6 +812,8 @@ const LABELS = {
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jsa = s => esc(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\r\n]+/g, ' '));
+try { if (top !== self) top.location = self.location; } catch (e) { document.documentElement.style.display = 'none'; }
 let session = null, reports = [], query = '', userRole = 'admin', userId = '';
 const ROLE_LABELS = { admin: 'מנהל מערכת', manager: 'מנהל', contractor: 'קבלן' };
 
@@ -826,9 +830,14 @@ try { const t = localStorage.getItem('dash_theme'); if (t) document.documentElem
 function saveSession(s) {
   session = s;
   try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {}
-  if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} }
+  if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); if (s.email) localStorage.setItem('dash_email', s.email); } catch (e) {} }
 }
 
+async function serverSignOut() {
+  const tk = session && session.access_token;
+  if (!tk) return;
+  try { await fetch(`${SB}/auth/v1/logout?scope=local`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + tk } }); } catch (e) {}
+}
 async function auth(path, body) {
   const r = await fetch(`${SB}/auth/v1/${path}`, {
     method: 'POST',
@@ -880,12 +889,21 @@ function renderLogin(msg, ok) {
     <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--mut)">גרסה 23.11 – תיקון כניסה</div>
   </form>`;
+  try { const em0 = localStorage.getItem('dash_email'); if (em0) { $('#em').value = em0; $('#pw').focus(); } } catch (x) {}
   $('#lf').onsubmit = async e => {
     e.preventDefault();
+    let fl = {}; try { fl = JSON.parse(localStorage.getItem('dash_fail') || '{}'); } catch (x) {}
+    if (fl.until && Date.now() < fl.until) { renderLogin('בוצעו יותר מדי ניסיונות כושלים. נסה שוב בעוד ' + Math.ceil((fl.until - Date.now()) / 1000) + ' שניות.'); return; }
     try {
       saveSession(await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value }));
+      try { localStorage.setItem('dash_email', $('#em').value.trim()); } catch (x) {}
+      try { localStorage.removeItem('dash_fail'); } catch (x) {}
       start();
-    } catch (err) { renderLogin(err.message); }
+    } catch (err) {
+      const n = (fl.n || 0) + 1;
+      try { localStorage.setItem('dash_fail', JSON.stringify(n >= 5 ? { n: 0, until: Date.now() + 60000 * Math.min(10, n - 4) } : { n, until: 0 })); } catch (x) {}
+      renderLogin(n >= 5 ? 'בוצעו יותר מדי ניסיונות כושלים. נסה שוב בעוד דקה.' : err.message);
+    }
   };
   $('#fg').onclick = async () => {
     const email = $('#em').value.trim();
@@ -926,17 +944,27 @@ create policy "dash list photos" on storage.objects for select to authenticated 
 create policy "dash delete photos" on storage.objects for delete to authenticated using (bucket_id='report-photos');`;
 
 async function loadRole() {
-  // אם טבלת profiles עדיין לא קיימת – ההתנהגות נשארת כמו קודם (admin)
+  // אבטחה: ללא תפקיד מאומת – אין גישה (לא מניחים מנהל כברירת מחדל)
+  userRole = '';
   try {
     const sub = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub;
     userId = sub;
     const r = await api(`${SB}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(sub)}`);
     if (r.ok) { const j = await r.json(); if (j[0] && j[0].role) userRole = j[0].role; }
   } catch (e) {}
+  return userRole;
 }
 
 async function load() {
   await loadRole();
+  if (userRole !== 'admin' && userRole !== 'manager') {
+    const msg = userRole === 'contractor'
+      ? 'משתמש מסוג קבלן מורשה להיכנס לאפליקציית השטח בלבד. אין גישה לפורטל הניהול.'
+      : 'לא נמצאה הרשאת מנהל לחשבון זה. פנה למנהל המערכת.';
+    await serverSignOut(); saveSession(null); reports = [];
+    renderLogin(msg);
+    return;
+  }
   $('#app').innerHTML = '<div class="msg">טוען נתונים ודיווחים מהשרת…</div>';
   let r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=2000`);
   if (r.status === 400) r = await api(`${SB}/rest/v1/reports?select=*&limit=2000`);
@@ -964,17 +992,22 @@ function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return
 const canApprove = () => userRole === 'admin' || userRole === 'manager';
 const apprBadge = r => r.approval_status === 'approved' ? '<span class="appr-b ok">✓ אושר</span>'
   : r.approval_status === 'rejected' ? '<span class="appr-b bad">✕ לא אושר</span>' : '<span class="appr-b">⏳ ממתין לאישור</span>';
-const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn ok" onclick="apprSet('${esc(id)}','approved',event)">✓ אשר</button>
-  <button type="button" class="appr-btn bad" onclick="apprSet('${esc(id)}','rejected',event)">✕ לא אשר</button>
-  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','note',event)">💬 הערה</button>
-  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
+const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn ok" onclick="apprSet('${jsa(id)}','approved',event)">✓ אשר</button>
+  <button type="button" class="appr-btn bad" onclick="apprSet('${jsa(id)}','rejected',event)">✕ לא אשר</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${jsa(id)}','note',event)">💬 הערה</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${jsa(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
 const apprRow = r => `<div class="appr" style="grid-column:1/-1;flex-direction:row;flex-wrap:wrap" onclick="event.stopPropagation()">${apprBadge(r)}${apprButtons(r.report_id)}${r.approval_note ? `<div class="appr-note">💬 ${esc(r.approval_note)}</div>` : ''}</div>`;
 async function apprSet(id, status, ev) {
   if (ev) ev.stopPropagation();
   const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
   let note = r.approval_note || '';
   if (status === 'clear') { if (!confirm('לאפס את סטטוס האישור וההערה?')) return; status = null; note = ''; }
-  else {
+  else if (status === 'rejected') {
+    let n = prompt('סיבת אי-האישור (שדה חובה – תישלח לקבלן):', note);
+    while (n !== null && !n.trim()) n = prompt('חובה לכתוב הערה כדי לסמן "לא אושר". כתוב מה צריך לתקן:', '');
+    if (n === null) return;
+    note = n.trim();
+  } else {
     const q = status === 'rejected' ? 'סיבה / הערה (אופציונלי):' : (status === 'approved' ? 'הערה לאישור (אופציונלי):' : 'הערה לדיווח:');
     const n = prompt(q, note); if (n === null) return;
     note = n.trim();
@@ -1199,7 +1232,7 @@ function renderShell(extra = '') {
           <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
         </h1>
       </div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:11px;color:var(--mut);margin-inline-start:8px">גרסה 24.11 · PDF</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:11px;color:var(--mut);margin-inline-start:8px">גרסה 24.11 · אבטחה</span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)">🌓</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">🔄 רענון</button>
       <button class="btn bad" id="lo">יציאה</button>
@@ -1235,6 +1268,7 @@ function renderShell(extra = '') {
           ${userRole === 'admin' ? '<button class="btn" id="tu">👥 משתמשים</button>' : ''}
         </div>
         <div class="spacer"></div>
+        <button class="btn" id="e2" title="קובץ ZIP עם תיקייה לכל עיר: נ.צ של כל גוב / עמוד (KML + CSV) לפי הסינון הנוכחי">📍 מיקומים לפי ערים (ZIP)</button>
         <button class="btn ok" id="e1">📊 ייצוא אקסל מעוצב (.xlsx)</button>
       </div>
       <div id="list"></div>
@@ -1247,7 +1281,7 @@ function renderShell(extra = '') {
     try { localStorage.setItem('dash_theme', d.dataset.theme); } catch (e) {}
   };
   $('#rf').onclick = load;
-  $('#lo').onclick = () => { saveSession(null); renderLogin(); };
+  $('#lo').onclick = async () => { await serverSignOut(); saveSession(null); reports = []; renderLogin(); };
   $('#q').oninput = e => { query = e.target.value; refresh(); };
   $('#fk').onchange = e => { fCompany = e.target.value; refresh(); };
   $('#fp').onchange = e => { fProject = e.target.value; refresh(); };
@@ -1265,6 +1299,7 @@ function renderShell(extra = '') {
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
   $('#e1').onclick = exportExcelStyled;
+  $('#e2').onclick = exportLocationsZip;
   refresh();
 }
 
@@ -1495,14 +1530,14 @@ function renderHubPhotoCard(i) {
   const safeTitle = `${i.company} | ${i.project} - ${i.label || i.category}`;
   return `
     <div class="photo-card">
-      <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')">
+      <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${jsa(i.url)}', '${jsa(safeTitle)}')">
       <div class="hub-photo-meta" title="${esc(safeTitle)} | ${esc(i.contractor)} (${esc(i.date)})">
         <b>${esc(i.label || i.category)}</b> · ${esc(i.date)}
       </div>
       <div class="photo-actions">
-        <button onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')" title="הגדל">🔍 הצג</button>
-        <button onclick="sharePhoto('${esc(i.url)}', '${esc(safeTitle)}')" title="שתף">📤 שלח</button>
-        <button onclick="openDetail('${esc(i.report_id)}')" title="פתח דיווח">📄 דיווח</button>
+        <button onclick="openLightbox('${jsa(i.url)}', '${jsa(safeTitle)}')" title="הגדל">🔍 הצג</button>
+        <button onclick="sharePhoto('${jsa(i.url)}', '${jsa(safeTitle)}')" title="שתף">📤 שלח</button>
+        <button onclick="openDetail('${jsa(i.report_id)}')" title="פתח דיווח">📄 דיווח</button>
       </div>
     </div>
   `;
@@ -1642,6 +1677,45 @@ function styleWorksheet(ws, colWidths, opts = {}) {
     }
   }
   ws['!rows'] = [{ hpt: 30 }];
+}
+
+
+/* ייצוא מיקומים (נ.צ) לפי ערים: תיקייה לכל עיר, בתוכה KML (Google Earth / My Maps) ו-CSV, עם שיוך לגוב / עמוד */
+function unitLabelOf(r) {
+  const set = new Set();
+  const u0 = unitOf(r, null); if (u0) u0.text.split(' · ').forEach(t => set.add(t));
+  photosOf(r).forEach(p => { const u = unitOf(r, p); if (u) u.text.split(' · ').forEach(t => set.add(t)); });
+  return [...set].join(' · ');
+}
+const safeName = t => String(t || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80) || 'ללא שם';
+const xmlEsc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+const csvCell = v => { const t = String(v ?? '').replace(/"/g, '""'); return /[",\n\r]/.test(t) ? `"${t}"` : t; };
+async function exportLocationsZip() {
+  const rows = filtered().map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
+  if (!rows.length) { showToast('אין דיווחים עם נ.צ בסינון הנוכחי'); return; }
+  if (typeof JSZip === 'undefined') { showToast('ספריית ה-ZIP עדיין נטענת, נסה שוב בעוד רגע'); return; }
+  const byCity = new Map();
+  rows.forEach(x => { const c = safeName(x.r.city || 'ללא עיר'); if (!byCity.has(c)) byCity.set(c, []); byCity.get(c).push(x); });
+  const mk = list => '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n' + list.map(({ r, g }) => {
+    const unit = unitLabelOf(r) || 'ללא גוב/עמוד';
+    const desc = [`דיווח #${r.report_id}`, r.project && `פרויקט: ${r.project}`, r.company && `חברה: ${r.company}`, r.contractor_name && `קבלן: ${r.contractor_name}`, r.date && `תאריך: ${r.date}`, (r.city || r.address) && `כתובת: ${[r.city, r.address].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
+    return `<Placemark><name>${xmlEsc(unit)}</name><description>${xmlEsc(desc)}</description><Point><coordinates>${+g.longitude},${+g.latitude},0</coordinates></Point></Placemark>`;
+  }).join('\n') + '\n</Document></kml>';
+  const head = ['עיר', 'גוב / עמוד', 'קו רוחב', 'קו אורך', 'נ.צ', 'קישור Google Maps', 'מזהה דיווח', 'פרויקט', 'חברה', 'קבלן', 'תאריך', 'כתובת'];
+  const mkCsv = list => '\ufeff' + [head, ...list.map(({ r, g }) => [r.city || 'ללא עיר', unitLabelOf(r) || 'ללא גוב/עמוד', +g.latitude, +g.longitude, ncText(g), `https://www.google.com/maps?q=${g.latitude},${g.longitude}`, r.report_id, r.project, r.company, r.contractor_name, r.date, r.address])].map(a => a.map(csvCell).join(',')).join('\r\n');
+  const zip = new JSZip();
+  const root = zip.folder('מיקומים');
+  for (const [city, list] of [...byCity].sort((a, b) => a[0].localeCompare(b[0], 'he'))) {
+    const f = root.folder(city);
+    f.file(`${city}.kml`, mk(list));
+    f.file(`${city}.csv`, mkCsv(list));
+  }
+  root.file('כל המיקומים.csv', mkCsv(rows));
+  root.file('כל המיקומים.kml', mk(rows));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `מיקומים-לפי-ערים-${today()}.zip`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  showToast(`נשמרו ${rows.length} מיקומים ב-${byCity.size} ערים`);
 }
 
 function exportExcelStyled() {
@@ -1789,7 +1863,7 @@ async function openDetail(id) {
       <div class="lbl">🧭 נ.צ – נקודת ציון (GPS מאומת)</div>
       <div class="val"><span class="nc-chip" style="font-size:15px">${esc(ncText(gps))}</span></div>
       <div class="nc-actions">
-        <button type="button" onclick="copyNC('${esc(ncText(gps))}')">📋 העתק נ.צ</button>
+        <button type="button" onclick="copyNC('${jsa(ncText(gps))}')">📋 העתק נ.צ</button>
         <a href="${mapUrl}" target="_blank" rel="noopener">🗺️ Google Maps ↗</a>
         <a href="https://waze.com/ul?ll=${gps.latitude},${gps.longitude}&navigate=yes" target="_blank" rel="noopener">🚗 Waze ↗</a>
       </div>
@@ -1881,11 +1955,11 @@ async function openDetail(id) {
     <div class="photos-grid">
       ${arr.map(i => `
         <div class="photo-card">
-          <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')">
+          <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')">
           <div class="photo-actions">
-            <button onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')" title="הגדל תמונה">🔍 הגדל</button>
-            <button onclick="sharePhoto('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')" title="שלח בוואטסאפ / שתף">📤 שלח</button>
-            <button onclick="copyPhotoLink('${esc(i.url)}')" title="העתק קישור">🔗</button>
+            <button onclick="openLightbox('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')" title="הגדל תמונה">🔍 הגדל</button>
+            <button onclick="sharePhoto('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')" title="שלח בוואטסאפ / שתף">📤 שלח</button>
+            <button onclick="copyPhotoLink('${jsa(i.url)}')" title="העתק קישור">🔗</button>
           </div>
         </div>
       `).join('')}
@@ -1920,15 +1994,11 @@ async function openDetail(id) {
     setTimeout(() => window.print(), 350);
   };
 
-  // שמירה בשם: קובץ PDF אמיתי. בכרום/אדג׳ במחשב נפתח חלון לבחירת תיקייה ושם; בשאר הדפדפנים הקובץ יורד לתיקיית ההורדות.
-  $('#sv').onclick = async () => {
+  // שמירה בשם: קובץ PDF אמיתי. קודם מייצרים את ה-PDF ורק אחר כך בוחרים מיקום – כך אף פעם לא נשמר קובץ ריק.
+  // בכרום/אדג׳ במחשב נפתח חלון לבחירת תיקייה ושם; בשאר הדפדפנים הקובץ יורד לתיקיית ההורדות.
+  const doSave = async () => {
     const btn = $('#sv'), label = btn.textContent;
     const name = `דוח-${String(r.project || 'ביצוע').replace(/[\\/:*?"<>|]/g, '_')}-${String(r.report_id).replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
-    let handle = null;
-    if (window.showSaveFilePicker) {
-      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] }); }
-      catch (e) { if (e && e.name === 'AbortError') return; }
-    }
     btn.disabled = true; btn.textContent = 'מכין PDF…';
     let host = null;
     try {
@@ -1947,7 +2017,8 @@ async function openDetail(id) {
       }));
       host = document.createElement('div');
       host.setAttribute('dir', 'rtl');
-      host.style.cssText = 'position:absolute;left:-10000px;top:0;width:718px;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif';
+      // חשוב: האלמנט חייב להיות בתוך אזור התצוגה (לא מחוץ למסך), אחרת הרינדור יוצא ריק
+      host.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;pointer-events:none;width:718px;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif';
       host.innerHTML = '<style>' +
         '.p{page-break-after:always;display:block;text-align:center;padding:0;min-height:0}.p:last-child{page-break-after:auto}' +
         '.p img{max-width:100%;max-height:880px;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
@@ -1956,13 +2027,33 @@ async function openDetail(id) {
         'th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:right;font-size:13px}th{background:#f1f5f9;font-weight:700}' +
         '</style>' + buildSheet(u => urlMap[u] || u);
       document.body.appendChild(host);
+      if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+      await Promise.all([...host.querySelectorAll('img')].map(im => im.complete ? Promise.resolve() : new Promise(res => { im.onload = im.onerror = res; })));
       const blob = await window.html2pdf().set({
         margin: [10, 10, 10, 10], filename: name,
         image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, windowWidth: 718 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
       }).from(host).outputPdf('blob');
+      host.remove(); host = null;
+      if (!blob || blob.size < 4000) throw new Error('empty');
+
+      let handle = null;
+      const pick = () => window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] });
+      if (window.showSaveFilePicker) {
+        try { handle = await pick(); }
+        catch (e) {
+          if (e && e.name === 'AbortError') { btn.disabled = false; btn.textContent = label; return; }
+          // הדפדפן דורש לחיצה חדשה כדי לפתוח את חלון השמירה
+          await new Promise(res => {
+            btn.disabled = false; btn.textContent = '📁 לחץ לבחירת מיקום השמירה';
+            btn.onclick = async () => { try { handle = await pick(); } catch (e2) { handle = null; } res(); };
+          });
+          btn.onclick = doSave;
+          if (!handle) { btn.textContent = label; return; }
+        }
+      }
       if (handle) { const w = await handle.createWritable(); await w.write(blob); await w.close(); }
       else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
       showToast('ה-PDF נשמר');
@@ -1977,6 +2068,7 @@ async function openDetail(id) {
     } finally { if (host) host.remove(); }
     btn.disabled = false; btn.textContent = label;
   };
+  $('#sv').onclick = doSave;
 
   if ($('#del')) $('#del').onclick = async () => {
     if (!confirm('למחוק את הדיווח ואת כל התמונות שלו לצמיתות?')) return;
@@ -1993,24 +2085,37 @@ async function openDetail(id) {
 
 $('#modal').onclick = e => { if (e.target.id === 'modal') e.target.classList.remove('open'); };
 
-/* נעילה אוטומטית: אם האתר נסגר / ברקע יותר מ-5 דקות – נדרשת סיסמה מחדש */
-const LOCK_MS = 5 * 60 * 1000;
+/* נעילה אוטומטית: 30 דקות ללא פעילות (לחיצה / הקלדה / גלילה) או ברקע – נדרשת סיסמה מחדש */
+const LOCK_MS = 30 * 60 * 1000;
+const LOCK_TXT = 'עברו 30 דקות ללא פעילות – יש להתחבר מחדש.';
 const seenAt = () => { try { return +localStorage.getItem('dash_seen') || 0; } catch (e) { return 0; } };
 const touchSeen = () => { try { if (session) localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} };
+let lastTouch = 0;
+function activity() { const n = Date.now(); if (session && n - lastTouch > 3000) { lastTouch = n; touchSeen(); } }
+['pointerdown', 'keydown', 'scroll', 'touchstart', 'mousemove', 'wheel'].forEach(ev => addEventListener(ev, activity, { passive: true, capture: true }));
 function lockIfStale() {
   if (session && Date.now() - seenAt() > LOCK_MS) {
+    serverSignOut();
     saveSession(null);
     try { localStorage.removeItem('dash_seen'); } catch (e) {}
     return true;
   }
   return false;
 }
-setInterval(touchSeen, 15000);
-addEventListener('pagehide', touchSeen);
+function enforceLock() {
+  if (!session) return;
+  if (lockIfStale()) {
+    reports = [];
+    ['#modal', '#lightbox'].forEach(q => { const el = $(q); if (el) el.classList.remove('open'); });
+    const sh = $('#sheet'); if (sh) sh.innerHTML = '';
+    renderLogin(LOCK_TXT, true);
+  }
+}
+setInterval(enforceLock, 20000);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') { touchSeen(); return; }
-  if (lockIfStale()) renderLogin('עברו יותר מ-5 דקות – יש להתחבר מחדש.', true);
-  else { touchSeen(); if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); }
+  if (document.visibilityState === 'hidden') return;
+  enforceLock();
+  if (session && Date.now() - lastRefresh >= REFRESH_MS) softRefresh();
 });
 
 /* רענון נתונים אוטומטי כל 15 דקות (בלי לסגור חלונות פתוחים ובלי לאבד מקום) */
@@ -2040,8 +2145,8 @@ function start() {
   if (hp.get('type') === 'recovery' && hp.get('access_token')) { renderReset(hp.get('access_token')); return; }
   if (hp.get('error_description')) { history.replaceState(null, '', location.pathname + location.search); renderLogin(hp.get('error_description')); return; }
   const locked = lockIfStale();
-  touchSeen();
-  session ? load() : renderLogin(locked ? 'עברו יותר מ-5 דקות – יש להתחבר מחדש.' : undefined, !!locked);
+  if (!locked) touchSeen();
+  session ? load() : renderLogin(locked ? LOCK_TXT : undefined, !!locked);
 }
 start();
 </script>
