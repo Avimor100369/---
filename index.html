@@ -1007,6 +1007,36 @@ header .btn { border-radius: 999px; padding: 8px 14px; }
 .themeseg { display: inline-flex; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 999px; padding: 3px; gap: 2px; }
 .themeseg .btn { border: 0 !important; background: transparent !important; padding: 6px 10px !important; color: rgba(255,255,255,.75) !important; }
 .themeseg .btn.on { background: #fff !important; color: #0f4c81 !important; }
+/* ===== כרטיסי KPI ===== */
+.k-blue { --k: #2563eb; --kbg: rgba(37,99,235,.10); } .k-violet { --k: #7c3aed; --kbg: rgba(124,58,237,.10); }
+.k-amber { --k: #d97706; --kbg: rgba(217,119,6,.12); } .k-green { --k: #059669; --kbg: rgba(5,150,105,.11); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.stat { display: flex !important; flex-direction: row !important; align-items: center; gap: 16px; padding: 18px 20px !important; background: var(--card); border: 1px solid var(--line); border-radius: 16px !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 20px -14px rgba(15,23,42,.25) !important; position: relative; overflow: hidden; }
+.stat::before { content: ""; position: absolute; inset-inline-end: -28px; top: -28px; width: 110px; height: 110px; border-radius: 50%; background: var(--kbg); }
+.k-ico { flex: none; width: 52px; height: 52px; border-radius: 14px; background: var(--kbg); color: var(--k); display: flex; align-items: center; justify-content: center; position: relative; }
+.k-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; position: relative; }
+.k-label { font-size: 13px !important; font-weight: 600; color: var(--mut) !important; }
+.stat .k-body b { font-size: 32px; font-weight: 800; line-height: 1.15; color: var(--tx); letter-spacing: -.5px; }
+.stat .k-body small { font-size: 12.5px; color: var(--mut); margin: 0; }
+.stat .k-body .trend { color: var(--k); font-weight: 700; background: var(--kbg); padding: 0 6px; border-radius: 6px; }
+.k-bar { height: 6px; border-radius: 99px; background: var(--kbg); margin: 3px 0 4px; overflow: hidden; }
+.k-bar i { display: block; height: 100%; background: var(--k); border-radius: 99px; }
+/* ===== שורת הסינון: צבעים רכים ===== */
+.filters { gap: 10px; }
+.filters select, .filters label { border-radius: 999px !important; padding: 8px 14px; font-weight: 600; font-size: 13.5px; border: 1px solid transparent !important; transition: background .15s, box-shadow .15s; cursor: pointer; }
+#fk { background: rgba(37,99,235,.09); color: #1d4ed8; } #fp { background: rgba(124,58,237,.09); color: #6d28d9; }
+#fc { background: rgba(217,119,6,.11); color: #b45309; } #fct { background: rgba(5,150,105,.10); color: #047857; }
+.filters label { background: rgba(100,116,139,.10) !important; color: var(--tx-sec); }
+:root[data-theme=dark] #fk { color: #93c5fd; } :root[data-theme=dark] #fp { color: #c4b5fd; } :root[data-theme=dark] #fc { color: #fcd34d; } :root[data-theme=dark] #fct { color: #6ee7b7; }
+.filters select:hover, .filters label:hover { box-shadow: 0 0 0 2px var(--pri-light); }
+.filters select:focus, .filters input:focus { outline: none; box-shadow: 0 0 0 3px var(--pri-light); }
+.quick-dates .btn { border-radius: 999px; border: 1px solid transparent; background: rgba(37,99,235,.09) !important; color: #1d4ed8; font-weight: 700; box-shadow: none; padding: 7px 14px; }
+.quick-dates .btn:hover:not(:disabled) { background: rgba(37,99,235,.18) !important; }
+.quick-dates .btn.bad { background: rgba(225,29,72,.09) !important; color: #be123c; }
+.quick-dates .btn.bad:hover:not(:disabled) { background: rgba(225,29,72,.18) !important; color: #be123c; }
+:root[data-theme=dark] .quick-dates .btn { color: #93c5fd; } :root[data-theme=dark] .quick-dates .btn.bad { color: #fda4af; }
+header h1 small { white-space: nowrap; }
+.filters input[type=date] { background: transparent; border: 0; font-weight: 600; color: var(--tx-sec); }
 </style>
 </head>
 <body>
@@ -1544,11 +1574,11 @@ function renderShell(extra = '') {
         <h1>
           מערכת ניהול ובקרת שטח
           <span class="live-pill"><span class="live-dot"></span>מבצעי</span>
-          <small>דיווחי שטח · תיעוד מצולם · התחשבנות קבלנים</small>
+          <small>דיווחי שטח · תיעוד · התחשבנות</small>
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ט · בהיר / כהה</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-י · כרטיסים וסינון</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1641,25 +1671,26 @@ function refresh() {
   const gpsPct = rows.length ? Math.round((gpsCount / rows.length) * 100) : 0;
 
   $('#stats').innerHTML = `
-    <div class="stat">
-      <div class="stat-top"><b>${rows.length}</b><span class="stat-ico">${ic("file",20)}</span></div>
-      <span>סה״כ דיווחים</span>
-      <small><b class="trend">+${weekN}</b> ב-7 הימים האחרונים${rows.length !== reports.length ? ' · מסונן מתוך ' + reports.length : ''}</small>
+    <div class="stat k-blue">
+      <div class="k-ico">${ic("file", 24)}</div>
+      <div class="k-body"><span class="k-label">סה״כ דיווחים</span><b>${rows.length}</b>
+        <small><span class="trend">+${weekN}</span> ב-7 הימים האחרונים${rows.length !== reports.length ? ' · מסונן מתוך ' + reports.length : ''}</small></div>
     </div>
-    <div class="stat s-acc">
-      <div class="stat-top"><b>${projectsCount}</b><span class="stat-ico">${ic("building",20)}</span></div>
-      <span>פרויקטים ואתרים</span>
-      <small>${contractors} קבלנים פעילים</small>
+    <div class="stat k-violet">
+      <div class="k-ico">${ic("building", 24)}</div>
+      <div class="k-body"><span class="k-label">פרויקטים ואתרים</span><b>${projectsCount}</b>
+        <small>${contractors} קבלנים פעילים</small></div>
     </div>
-    <div class="stat s-warn">
-      <div class="stat-top"><b>${totalPhotos}</b><span class="stat-ico">${ic("camera",20)}</span></div>
-      <span>תמונות מתועדות</span>
-      <small>ממוצע ${(rows.length ? (totalPhotos / rows.length).toFixed(1) : 0)} תמונות לדיווח</small>
+    <div class="stat k-amber">
+      <div class="k-ico">${ic("camera", 24)}</div>
+      <div class="k-body"><span class="k-label">תמונות מתועדות</span><b>${totalPhotos}</b>
+        <small>ממוצע ${(rows.length ? (totalPhotos / rows.length).toFixed(1) : 0)} תמונות לדיווח</small></div>
     </div>
-    <div class="stat s-ok">
-      <div class="stat-top"><b>${gpsCount}</b><span class="stat-ico">${ic("pinok",20)}</span></div>
-      <span>מאומתים ב-GPS</span>
-      <small>${gpsPct}% כיסוי מיקום מאומת</small>
+    <div class="stat k-green">
+      <div class="k-ico">${ic("pinok", 24)}</div>
+      <div class="k-body"><span class="k-label">מאומתים ב-GPS</span><b>${gpsCount}</b>
+        <div class="k-bar"><i style="width:${gpsPct}%"></i></div>
+        <small>${gpsPct}% כיסוי מיקום מאומת</small></div>
     </div>`;
 
   const chipDefs = [['חיפוש', query, () => { query = ''; }], ['חברה', fCompany, () => { fCompany = ''; }], ['פרויקט', fProject, () => { fProject = ''; }], ['קבלן', fContractor, () => { fContractor = ''; }], ['עיר', fCity, () => { fCity = ''; }], ['מתאריך', fFrom, () => { fFrom = ''; }], ['עד', fTo, () => { fTo = ''; }]].filter(c => c[1]);
