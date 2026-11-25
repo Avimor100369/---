@@ -970,6 +970,16 @@ header .btn.bad { background: rgba(251,113,133,.18); color: #fecdd3; border-colo
   .shell main { padding: 14px 14px 40px; }
   .controls-card { position: static; }
 }
+/* ===== הדגשת כל דיווח ברשימה ===== */
+.row { background: var(--card); border: 1px solid var(--line); border-inline-start: 5px solid var(--mut); border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,.10), 0 4px 12px -6px rgba(15,23,42,.12); margin-bottom: 12px; padding: 14px 18px; }
+.row[data-st="approved"] { border-inline-start-color: var(--ok); }
+.row[data-st="rejected"] { border-inline-start-color: var(--bad); }
+.row[data-st="pending"] { border-inline-start-color: var(--warn); }
+.row:hover { background: var(--card) !important; border-color: var(--pri); border-inline-start-width: 5px; box-shadow: 0 2px 6px rgba(15,23,42,.14), 0 10px 24px -10px rgba(15,76,129,.35); }
+.row-info > div:nth-child(1) .val { font-weight: 700; font-size: 15px; }
+.row-info > div:nth-child(3) .val { font-size: 16.5px; font-weight: 800; color: var(--pri); }
+.row-info > div:nth-child(2) .val { font-weight: 600; }
+.row .id-row { border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -1871,7 +1881,7 @@ function renderList(rows) {
     const linesCount = linesOf(r).length;
     const locStr = [r.city, r.address].filter(Boolean).join(', ');
     const id = esc(r.report_id);
-    return `<div class="row${sel.has(r.report_id) ? ' sel-on' : ''}" data-id="${id}">
+    return `<div class="row${sel.has(r.report_id) ? ' sel-on' : ''}" data-id="${id}" data-st="${esc(r.approval_status || 'pending')}">
       <label class="sel-cb" onclick="event.stopPropagation()" title="בחירה לפעולה מרובה"><input type="checkbox" data-sel="${id}"${sel.has(r.report_id) ? ' checked' : ''}></label>
       <div class="row-main">
         <div class="row-info">
