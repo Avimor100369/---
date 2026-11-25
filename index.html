@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יז · push 6</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יח · בקשות איפוס</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1641,7 +1641,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
-          ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים</button>` : ''}
+          ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
         </div>
       <div class="side-h">ייצוא</div>
       <div class="side-ex">
@@ -1760,6 +1760,7 @@ function refresh() {
   $('#tp').classList.toggle('pri', view === 'places');
   $('#ta').classList.toggle('pri', view === 'analytics');
   if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
+  updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
 
   if (view !== 'map') {
@@ -1777,13 +1778,44 @@ function refresh() {
   else renderList(rows);
 }
 
+async function resetPw(id, em) {
+  const v = await dlg({ title: 'איפוס סיסמה', text: 'סיסמה חדשה עבור ' + em + ' (לפחות 6 תווים). המשתמש יאומת אוטומטית ויוכל להתחבר מיד.', input: true, ok: 'עדכן סיסמה', cancel: 'ביטול' });
+  if (v === null || v === undefined || v === false) return false;
+  const pw = String(v).trim();
+  if (pw.length < 6) { showToast('הסיסמה חייבת להכיל לפחות 6 תווים'); return false; }
+  const d = await api(`${SB}/rest/v1/rpc/admin_set_password`, { method: 'POST', body: JSON.stringify({ target: id, new_password: pw }) });
+  showToast(d.ok ? 'הסיסמה עודכנה – אפשר להתחבר' : 'העדכון נכשל – ודא שהרצת את supabase_user_admin.sql');
+  return d.ok;
+}
+var _rqAt = 0;
+async function updateReqBadge(force) {
+  if (userRole !== 'admin' || !session) return;
+  if (!force && Date.now() - _rqAt < 60000) return;
+  _rqAt = Date.now();
+  try {
+    const r = await api(`${SB}/rest/v1/password_requests?select=id&handled=eq.false`);
+    const n = r.ok ? (await r.json()).length : 0, el = document.getElementById('tun');
+    if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
+  } catch (e) {}
+}
 async function renderUsers() {
   $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(4) + '</div>';
   const r = await api(`${SB}/rest/v1/profiles?select=*&order=created_at.asc`);
   if (!r.ok) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון משתמשים. ודא שהרצת את supabase_setup.sql.</div>'; return; }
   const users = await r.json();
+  let reqs = [];
+  try { const rq = await api(`${SB}/rest/v1/password_requests?select=*&handled=eq.false&order=created_at.desc`); if (rq.ok) reqs = await rq.json(); } catch (e) {}
+  const matchU = ident => { const q = String(ident || '').trim().toLowerCase(); return users.find(u => (u.email || '').toLowerCase() === q || (u.full_name || '').toLowerCase() === q || (u.contractor_name || '').toLowerCase() === q); };
   const opts = cur => Object.entries(ROLE_LABELS).map(([k, l]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${l}</option>`).join('');
   $('#list').innerHTML = `
+    ${reqs.length ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <b>🔑 בקשות איפוס סיסמה (${reqs.length})</b>
+      ${reqs.map(q => { const m = matchU(q.identifier); return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;padding:8px 0;border-top:1px solid var(--line)">
+        <span style="direction:ltr;font-weight:600">${esc(q.identifier)}</span>
+        <span style="color:var(--mut);font-size:12px">${dtl(q.created_at)}</span>
+        ${m ? `<span class="role-pill">${esc(m.full_name || m.contractor_name || m.email || '')}</span>` : '<span style="color:var(--mut);font-size:12px">לא נמצא משתמש תואם</span>'}
+        <span style="margin-inline-start:auto;display:flex;gap:6px">${m ? `<button class="btn sm pri" data-rq-reset="${esc(q.id)}" data-uid="${esc(m.id)}">אפס סיסמה</button>` : ''}<button class="btn sm" data-rq-done="${esc(q.id)}">סמן כטופל</button></span></div>`; }).join('')}
+    </div>` : ''}
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)">
       <b>➕ פתיחת משתמש חדש</b>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -1817,15 +1849,15 @@ async function renderUsers() {
     showToast(j.length ? 'ההרשאה נשמרה' : 'השמירה נכשלה – בדוק הרשאות');
   });
 
-  document.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => {
-    const id = b.dataset.pw, em = b.dataset.em;
-    dlg({ title: 'איפוס סיסמה', text: 'סיסמה חדשה עבור ' + em + ' (לפחות 6 תווים). המשתמש יאומת אוטומטית ויוכל להתחבר מיד.', input: true, ok: 'עדכן סיסמה', cancel: 'ביטול' }).then(async v => {
-      if (v === null || v === undefined || v === false) return;
-      const pw = String(v).trim();
-      if (pw.length < 6) { showToast('הסיסמה חייבת להכיל לפחות 6 תווים'); return; }
-      const d = await api(`${SB}/rest/v1/rpc/admin_set_password`, { method: 'POST', body: JSON.stringify({ target: id, new_password: pw }) });
-      showToast(d.ok ? 'הסיסמה עודכנה – אפשר להתחבר' : 'העדכון נכשל – ודא שהרצת את supabase_user_admin.sql');
-    });
+  document.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => resetPw(b.dataset.pw, b.dataset.em));
+  document.querySelectorAll('[data-rq-reset]').forEach(b => b.onclick = async () => {
+    const u = users.find(x => x.id === b.dataset.uid);
+    if (!u) { showToast('לא נמצא משתמש מתאים – אפס ידנית בטבלה למטה'); return; }
+    if (await resetPw(u.id, u.email || '')) { await api(`${SB}/rest/v1/password_requests?id=eq.${encodeURIComponent(b.dataset.rqReset)}`, { method: 'PATCH', body: JSON.stringify({ handled: true, handled_at: new Date().toISOString() }) }); renderUsers(); }
+  });
+  document.querySelectorAll('[data-rq-done]').forEach(b => b.onclick = async () => {
+    await api(`${SB}/rest/v1/password_requests?id=eq.${encodeURIComponent(b.dataset.rqDone)}`, { method: 'PATCH', body: JSON.stringify({ handled: true, handled_at: new Date().toISOString() }) });
+    renderUsers();
   });
 
   $('#nu-add').onclick = async () => {
@@ -2987,7 +3019,7 @@ async function softRefresh() {
   } catch (e) {}
 }
 setInterval(() => { if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); paintGreet(); }, 60000);
-setInterval(() => { if (document.visibilityState === 'visible') checkMsgs(); }, 120000);
+setInterval(() => { if (document.visibilityState === 'visible') { checkMsgs(); updateReqBadge(true); } }, 120000);
 
 /* ===== הודעות: מסך שליחה (מנהל) + חלון קופץ למקבלים ===== */
 var AUD_LABELS = { all: 'כולם', contractor: 'טכנאי שטח (קבלנים)', staff: 'משתמשי ניהול' };
