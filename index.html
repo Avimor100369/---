@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-טז · הודעות</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יז · push</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -3029,9 +3029,18 @@ async function renderMsgs() {
     if (!body) { showToast('כתוב את תוכן ההודעה'); return; }
     const ok = await dlg({ title: 'שליחת הודעה', text: `לשלוח את ההודעה אל: ${AUD_LABELS[audience]}?`, ok: 'שלח' });
     if (!ok) return;
-    const d = await api(`${SB}/rest/v1/announcements`, { method: 'POST', body: JSON.stringify({ title: title || null, body, audience }) });
-    showToast(d.ok ? 'ההודעה נשלחה' : 'השליחה נכשלה – ודא שהרצת את supabase_announcements.sql');
-    if (d.ok) renderMsgs();
+    const d = await api(`${SB}/rest/v1/announcements`, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ title: title || null, body, audience }) });
+    if (!d.ok) { showToast('השליחה נכשלה – ודא שהרצת את supabase_announcements.sql'); return; }
+    let note = 'ההודעה נשלחה';
+    try {
+      const created = (await d.json())[0];
+      const pr = await api(`${SB}/functions/v1/send-push`, { method: 'POST', body: JSON.stringify({ announcement_id: created.id }) });
+      if (pr.ok) { const pj = await pr.json(); note += ` · התראות push נשלחו ל-${pj.sent} טלפונים` + (pj.failed ? ` (${pj.failed} נכשלו)` : ''); }
+      else if (pr.status === 404) note += ' · (התראות push עדיין לא הופעלו ב-Supabase)';
+      else note += ' · שליחת ה-push נכשלה';
+    } catch (e) {}
+    showToast(note);
+    renderMsgs();
   };
   document.querySelectorAll('[data-delmsg]').forEach(b => b.onclick = async () => {
     if (!(await dlg({ title: 'מחיקת הודעה', text: 'ההודעה תימחק לכולם. להמשיך?', ok: 'מחק', danger: true }))) return;
