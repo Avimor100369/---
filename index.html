@@ -1275,7 +1275,7 @@ function renderShell(extra = '') {
           <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
         </h1>
       </div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:11px;color:var(--mut);margin-inline-start:8px">גרסה 25.11 · מיקומים</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ג · מיקומים</span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)">🌓</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">🔄 רענון</button>
       <button class="btn bad" id="lo">יציאה</button>
