@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יז · push 5</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יז · push 6</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -3002,7 +3002,7 @@ async function renderMsgs() {
   if (!ra.ok) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון הודעות. ודא שהרצת את supabase_announcements.sql.</div>'; return; }
   const anns = await ra.json(), reads = rr.ok ? await rr.json() : [], profs = rp.ok ? await rp.json() : [];
   const nameOf = u => u.full_name || u.contractor_name || u.email || '';
-  const inAud = (a, u) => u.id !== a.created_by && (a.audience === 'all' || (a.audience === 'contractor' && u.role === 'contractor') || (a.audience === 'staff' && (u.role === 'admin' || u.role === 'manager')));
+  const inAud = (a, u) => (a.audience === 'all' || (a.audience === 'contractor' && u.role === 'contractor') || (a.audience === 'staff' && (u.role === 'admin' || u.role === 'manager')));
   $('#list').innerHTML = `
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)">
       <b>📣 שליחת הודעה</b>
