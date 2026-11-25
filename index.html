@@ -2,8 +2,6 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; connect-src https://oisozmbfaebtqicleufm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
-<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Executive Control Portal – ניהול ובקרת שטח</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -772,6 +770,50 @@ header { -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: sat
   #sheet th { background: #f1f5f9; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 #map { position: relative; z-index: 0; }
+
+/* ===== עיצוב משודרג, מסכים גדולים, מפות ===== */
+body { background: radial-gradient(1100px 520px at 92% -8%, rgba(2,132,199,.13), transparent 60%), radial-gradient(900px 480px at -5% 0, rgba(15,76,129,.10), transparent 55%), var(--bg); background-attachment: fixed; }
+header { background: linear-gradient(120deg, #07243f 0%, #0f4c81 55%, #0284c7 125%) !important; box-shadow: 0 10px 30px -14px rgba(2,132,199,.6); }
+.btn { border-radius: 12px; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn.pri { background: linear-gradient(135deg, #0f4c81, #0284c7); border-color: transparent; box-shadow: 0 8px 18px -8px rgba(2,132,199,.75); }
+.btn.ok { background: linear-gradient(135deg, #047857, #10b981); color: #fff; border-color: transparent; box-shadow: 0 8px 18px -8px rgba(16,185,129,.7); }
+.btn.bad { transition: all .15s ease; }
+.btn.bad.armed { background: #dc2626; color: #fff; border-color: #dc2626; animation: pulseRed .9s ease infinite; }
+@keyframes pulseRed { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.row, .stat, .city-card { animation: rise .35s ease backwards; }
+.row { border-radius: 18px; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.row:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--acc); }
+.map-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 3px; box-shadow: var(--shadow-sm); }
+.seg button { font: inherit; font-weight: 700; font-size: 13px; padding: 8px 16px; border: 0; border-radius: 9px; background: transparent; color: var(--mut); cursor: pointer; }
+.seg button.on { background: linear-gradient(135deg, #0f4c81, #0284c7); color: #fff; box-shadow: 0 4px 12px -4px rgba(2,132,199,.6); }
+.legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--mut); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 5px; }
+.muted { color: var(--mut); font-size: 12.5px; }
+.map-box { height: 68vh; min-height: 420px; border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-md); overflow: hidden; }
+.pin span { display: block; width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid #fff; box-shadow: 0 3px 9px rgba(0,0,0,.35); }
+.city-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-md); margin-bottom: 18px; overflow: hidden; }
+.city-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: linear-gradient(120deg, #0a2a4a, #0f4c81); color: #fff; }
+.city-head h3 { margin: 0; font-size: 17px; }
+.city-count { background: rgba(255,255,255,.18); padding: 3px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+.city-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0; }
+.city-map { min-height: 330px; height: 100%; z-index: 0; }
+.city-pts { max-height: 420px; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.cp { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; background: var(--card-alt); transition: border-color .15s, box-shadow .15s; }
+.cp:hover { border-color: var(--acc); box-shadow: var(--shadow-sm); }
+.cp-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cp-sub { color: var(--mut); font-size: 12px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.cp-nc { margin: 6px 0; }
+.cp-act { display: flex; gap: 6px; flex-wrap: wrap; }
+.cp-act button, .cp-act a { font: inherit; font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--tx); cursor: pointer; text-decoration: none; }
+.cp-act button:hover, .cp-act a:hover { background: var(--pri-light); }
+@media (max-width: 820px) { .city-body { grid-template-columns: 1fr; } .city-map { min-height: 260px; } }
+@media (min-width: 1500px) { main { max-width: 1500px; } }
+@media (min-width: 1900px) { body { zoom: 1.12; } main { max-width: 1760px; padding-inline: 36px; } #list:has(> .row) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; } }
+@media (min-width: 2500px) { body { zoom: 1.3; } main { max-width: 2100px; } #list:has(> .row) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 </style>
 </head>
 <body>
@@ -812,8 +854,6 @@ const LABELS = {
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const jsa = s => esc(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\r\n]+/g, ' '));
-try { if (top !== self) top.location = self.location; } catch (e) { document.documentElement.style.display = 'none'; }
 let session = null, reports = [], query = '', userRole = 'admin', userId = '';
 const ROLE_LABELS = { admin: 'מנהל מערכת', manager: 'מנהל', contractor: 'קבלן' };
 
@@ -830,14 +870,9 @@ try { const t = localStorage.getItem('dash_theme'); if (t) document.documentElem
 function saveSession(s) {
   session = s;
   try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {}
-  if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); if (s.email) localStorage.setItem('dash_email', s.email); } catch (e) {} }
+  if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} }
 }
 
-async function serverSignOut() {
-  const tk = session && session.access_token;
-  if (!tk) return;
-  try { await fetch(`${SB}/auth/v1/logout?scope=local`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + tk } }); } catch (e) {}
-}
 async function auth(path, body) {
   const r = await fetch(`${SB}/auth/v1/${path}`, {
     method: 'POST',
@@ -889,21 +924,12 @@ function renderLogin(msg, ok) {
     <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--mut)">גרסה 23.11 – תיקון כניסה</div>
   </form>`;
-  try { const em0 = localStorage.getItem('dash_email'); if (em0) { $('#em').value = em0; $('#pw').focus(); } } catch (x) {}
   $('#lf').onsubmit = async e => {
     e.preventDefault();
-    let fl = {}; try { fl = JSON.parse(localStorage.getItem('dash_fail') || '{}'); } catch (x) {}
-    if (fl.until && Date.now() < fl.until) { renderLogin('בוצעו יותר מדי ניסיונות כושלים. נסה שוב בעוד ' + Math.ceil((fl.until - Date.now()) / 1000) + ' שניות.'); return; }
     try {
       saveSession(await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value }));
-      try { localStorage.setItem('dash_email', $('#em').value.trim()); } catch (x) {}
-      try { localStorage.removeItem('dash_fail'); } catch (x) {}
       start();
-    } catch (err) {
-      const n = (fl.n || 0) + 1;
-      try { localStorage.setItem('dash_fail', JSON.stringify(n >= 5 ? { n: 0, until: Date.now() + 60000 * Math.min(10, n - 4) } : { n, until: 0 })); } catch (x) {}
-      renderLogin(n >= 5 ? 'בוצעו יותר מדי ניסיונות כושלים. נסה שוב בעוד דקה.' : err.message);
-    }
+    } catch (err) { renderLogin(err.message); }
   };
   $('#fg').onclick = async () => {
     const email = $('#em').value.trim();
@@ -944,25 +970,21 @@ create policy "dash list photos" on storage.objects for select to authenticated 
 create policy "dash delete photos" on storage.objects for delete to authenticated using (bucket_id='report-photos');`;
 
 async function loadRole() {
-  // אבטחה: ללא תפקיד מאומת – אין גישה (לא מניחים מנהל כברירת מחדל)
-  userRole = '';
+  userRole = 'admin';   // ברירת מחדל רק אם אי אפשר לקרוא את הפרופיל (טבלה חסרה / אין קליטה)
+  // אם טבלת profiles עדיין לא קיימת – ההתנהגות נשארת כמו קודם (admin)
   try {
     const sub = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub;
     userId = sub;
     const r = await api(`${SB}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(sub)}`);
-    if (r.ok) { const j = await r.json(); if (j[0] && j[0].role) userRole = j[0].role; }
+    if (r.ok) { const j = await r.json(); userRole = (j[0] && j[0].role) || 'none'; }
   } catch (e) {}
-  return userRole;
 }
 
 async function load() {
   await loadRole();
-  if (userRole !== 'admin' && userRole !== 'manager') {
-    const msg = userRole === 'contractor'
-      ? 'משתמש מסוג קבלן מורשה להיכנס לאפליקציית השטח בלבד. אין גישה לפורטל הניהול.'
-      : 'לא נמצאה הרשאת מנהל לחשבון זה. פנה למנהל המערכת.';
-    await serverSignOut(); saveSession(null); reports = [];
-    renderLogin(msg);
+  if (userRole !== 'admin' && userRole !== 'manager') {   // רק מנהלים נכנסים לפורטל; קבלן – אפליקציית שטח בלבד
+    saveSession(null);
+    renderLogin('אין לך הרשאת כניסה לפורטל הניהול. הכניסה מיועדת למנהלים בלבד.');
     return;
   }
   $('#app').innerHTML = '<div class="msg">טוען נתונים ודיווחים מהשרת…</div>';
@@ -985,37 +1007,33 @@ ${esc(SQL_HINT)}</div>`);
 }
 
 let fCompany = '', fContractor = '', fProject = '', fCity = '', fFrom = '', fTo = '';
-let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0, leafletP = null;
+let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0, leafletP = null, mapMode = 'all', cityMaps = [];
 
 function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
 function gpsOf(r) { const dt = parseJ(r.details); const g = dt && dt.gps; return g && g.latitude != null && g.longitude != null ? g : null; }
 const canApprove = () => userRole === 'admin' || userRole === 'manager';
 const apprBadge = r => r.approval_status === 'approved' ? '<span class="appr-b ok">✓ אושר</span>'
   : r.approval_status === 'rejected' ? '<span class="appr-b bad">✕ לא אושר</span>' : '<span class="appr-b">⏳ ממתין לאישור</span>';
-const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn ok" onclick="apprSet('${jsa(id)}','approved',event)">✓ אשר</button>
-  <button type="button" class="appr-btn bad" onclick="apprSet('${jsa(id)}','rejected',event)">✕ לא אשר</button>
-  <button type="button" class="appr-btn" onclick="apprSet('${jsa(id)}','note',event)">💬 הערה</button>
-  <button type="button" class="appr-btn" onclick="apprSet('${jsa(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
+const apprButtons = id => canApprove() ? ` <button type="button" class="appr-btn ok" onclick="apprSet('${esc(id)}','approved',event)">✓ אשר</button>
+  <button type="button" class="appr-btn bad" onclick="apprSet('${esc(id)}','rejected',event)">✕ לא אשר</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','note',event)">💬 הערה</button>
+  <button type="button" class="appr-btn" onclick="apprSet('${esc(id)}','clear',event)" title="איפוס סטטוס">↺</button>` : '';
 const apprRow = r => `<div class="appr" style="grid-column:1/-1;flex-direction:row;flex-wrap:wrap" onclick="event.stopPropagation()">${apprBadge(r)}${apprButtons(r.report_id)}${r.approval_note ? `<div class="appr-note">💬 ${esc(r.approval_note)}</div>` : ''}</div>`;
 async function apprSet(id, status, ev) {
   if (ev) ev.stopPropagation();
   const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
   let note = r.approval_note || '';
   if (status === 'clear') { if (!confirm('לאפס את סטטוס האישור וההערה?')) return; status = null; note = ''; }
-  else if (status === 'rejected') {
-    let n = prompt('סיבת אי-האישור (שדה חובה – תישלח לקבלן):', note);
-    while (n !== null && !n.trim()) n = prompt('חובה לכתוב הערה כדי לסמן "לא אושר". כתוב מה צריך לתקן:', '');
-    if (n === null) return;
-    note = n.trim();
-  } else {
-    const q = status === 'rejected' ? 'סיבה / הערה (אופציונלי):' : (status === 'approved' ? 'הערה לאישור (אופציונלי):' : 'הערה לדיווח:');
-    let n = prompt(q, note); if (n === null) return;
-    // בדיווח שסומן "לא אושר" ההערה נשארת חובה גם בעריכתה
-    if (status === 'note' && r.approval_status === 'rejected') {
-      while (n !== null && !n.trim()) n = prompt('בדיווח שלא אושר ההערה היא שדה חובה:', note);
-      if (n === null) return;
-    }
-    note = n.trim();
+  else {
+    const must = status === 'rejected' || (status === 'note' && r.approval_status === 'rejected');
+    const q = status === 'rejected' ? 'סיבת אי-האישור (שדה חובה – תוצג לקבלן):' : (status === 'approved' ? 'הערה לאישור (אופציונלי):' : 'הערה לדיווח:');
+    let n;
+    do {
+      n = prompt(q, note); if (n === null) return;
+      n = n.trim();
+      if (must && !n) alert('חובה לכתוב הערה כשהדיווח לא מאושר.');
+    } while (must && !n);
+    note = n;
     if (status === 'note') status = r.approval_status || null;
   }
   const body = { approval_status: status, approval_note: note || null, approved_by: status || note ? (session.email || null) : null, approved_at: status || note ? new Date().toISOString() : null };
@@ -1237,7 +1255,7 @@ function renderShell(extra = '') {
           <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
         </h1>
       </div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:11px;color:var(--mut);margin-inline-start:8px">גרסה 24.11 · אבטחה</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:11px;color:var(--mut);margin-inline-start:8px">גרסה 25.11 · מסך גדול</span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)">🌓</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">🔄 רענון</button>
       <button class="btn bad" id="lo">יציאה</button>
@@ -1273,8 +1291,9 @@ function renderShell(extra = '') {
           ${userRole === 'admin' ? '<button class="btn" id="tu">👥 משתמשים</button>' : ''}
         </div>
         <div class="spacer"></div>
-        <button class="btn" id="e2" title="קובץ ZIP עם תיקייה לכל עיר: נ.צ של כל גוב / עמוד (KML + CSV) לפי הסינון הנוכחי">📍 מיקומים לפי ערים (ZIP)</button>
-        <button class="btn ok" id="e1">📊 ייצוא אקסל מעוצב (.xlsx)</button>
+        <button class="btn ok" id="e1" title="קובץ לחודש הנוכחי, למשל: נובמבר 2026">📊 ייצוא אקסל חודשי</button>
+        <button class="btn" id="e2" title="ייצוא לפי הסינון והחיפוש הנוכחיים">📄 לפי הסינון</button>
+        ${window.showDirectoryPicker ? '<button class="btn" id="e3" title="בחירת תיקיית השמירה של קבצי האקסל">📁 תיקיית שמירה</button>' : ''}
       </div>
       <div id="list"></div>
     </main>`;
@@ -1286,7 +1305,7 @@ function renderShell(extra = '') {
     try { localStorage.setItem('dash_theme', d.dataset.theme); } catch (e) {}
   };
   $('#rf').onclick = load;
-  $('#lo').onclick = async () => { await serverSignOut(); saveSession(null); reports = []; renderLogin(); };
+  $('#lo').onclick = () => { saveSession(null); renderLogin(); };
   $('#q').oninput = e => { query = e.target.value; refresh(); };
   $('#fk').onchange = e => { fCompany = e.target.value; refresh(); };
   $('#fp').onchange = e => { fProject = e.target.value; refresh(); };
@@ -1303,8 +1322,9 @@ function renderShell(extra = '') {
   $('#tm').onclick = () => { view = 'map'; refresh(); };
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
-  $('#e1').onclick = exportExcelStyled;
-  $('#e2').onclick = exportLocationsZip;
+  $('#e1').onclick = () => exportExcelMonthly(false);
+  $('#e2').onclick = exportExcelStyled;
+  if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
   refresh();
 }
 
@@ -1535,14 +1555,14 @@ function renderHubPhotoCard(i) {
   const safeTitle = `${i.company} | ${i.project} - ${i.label || i.category}`;
   return `
     <div class="photo-card">
-      <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${jsa(i.url)}', '${jsa(safeTitle)}')">
+      <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')">
       <div class="hub-photo-meta" title="${esc(safeTitle)} | ${esc(i.contractor)} (${esc(i.date)})">
         <b>${esc(i.label || i.category)}</b> · ${esc(i.date)}
       </div>
       <div class="photo-actions">
-        <button onclick="openLightbox('${jsa(i.url)}', '${jsa(safeTitle)}')" title="הגדל">🔍 הצג</button>
-        <button onclick="sharePhoto('${jsa(i.url)}', '${jsa(safeTitle)}')" title="שתף">📤 שלח</button>
-        <button onclick="openDetail('${jsa(i.report_id)}')" title="פתח דיווח">📄 דיווח</button>
+        <button onclick="openLightbox('${esc(i.url)}', '${esc(safeTitle)}')" title="הגדל">🔍 הצג</button>
+        <button onclick="sharePhoto('${esc(i.url)}', '${esc(safeTitle)}')" title="שתף">📤 שלח</button>
+        <button onclick="openDetail('${esc(i.report_id)}')" title="פתח דיווח">📄 דיווח</button>
       </div>
     </div>
   `;
@@ -1601,164 +1621,153 @@ function ensureLeaflet() {
   if (window.L) return Promise.resolve();
   if (leafletP) return leafletP;
   leafletP = new Promise((res, rej) => {
-    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(l);
-    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-    s.onload = res; s.onerror = () => { leafletP = null; rej(new Error('leaflet')); }; document.head.appendChild(s);
+    const base = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.min.css';
+    const cssDone = new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 3500); });   // מחכים לעיצוב המפה לפני שמציירים
+    document.head.appendChild(l);
+    const sc = document.createElement('script'); sc.src = base + 'leaflet.min.js';
+    sc.onload = () => cssDone.then(res);
+    sc.onerror = () => { leafletP = null; rej(new Error('leaflet')); };
+    document.head.appendChild(sc);
   });
   return leafletP;
 }
 
+const STATUS_COLOR = r => r.approval_status === 'approved' ? '#059669' : r.approval_status === 'rejected' ? '#e11d48' : '#0f4c81';
+const pinIcon = r => L.divIcon({ className: 'pin', html: `<span style="background:${STATUS_COLOR(r)}"></span>`, iconSize: [26, 26], iconAnchor: [13, 26], popupAnchor: [0, -24] });
+function addBase(map) {
+  const main = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO' });
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
+  let errs = 0;
+  main.on('tileerror', () => {   // אם ספק המפה נחסם – עוברים אוטומטית ל-OpenStreetMap
+    if (++errs === 6) { map.removeLayer(main); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map); }
+  });
+  main.addTo(map);
+  L.control.layers({ 'מפה': main, 'לוויין': sat }, null, { position: 'topleft' }).addTo(map);
+}
+function killMaps() {
+  if (mapObj) { try { mapObj.remove(); } catch (e) {} mapObj = null; }
+  cityMaps.forEach(m => { try { m.remove(); } catch (e) {} });
+  cityMaps = [];
+}
+const popupHtml = (r, g) => `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;min-width:200px">
+  <b style="font-size:14px;color:#0f4c81">${esc(r.project || 'דיווח')}</b><br>
+  <span style="font-size:12px;font-weight:700">${esc(r.company || '')}</span><br>
+  <span style="color:#64748b;font-size:12px">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span><br>
+  ${unitOf(r, null) ? `<span style="font-size:12px;font-weight:700">${esc(unitOf(r, null).text)}</span><br>` : ''}
+  <span style="direction:ltr;unicode-bidi:embed;font-family:monospace;font-size:12px;color:#059669;font-weight:700">🧭 ${esc(ncText(g))}</span>
+  <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+    <button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:6px 11px;border-radius:7px;cursor:pointer;font-weight:700">פתיחת דיווח</button>
+    <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" style="padding:6px 10px;background:#f1f5f9;border-radius:7px;text-decoration:none;color:#0f172a;font-weight:700">Google ↗</a>
+    <a target="_blank" rel="noopener" href="https://waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes" style="padding:6px 10px;background:#f1f5f9;border-radius:7px;text-decoration:none;color:#0f172a;font-weight:700">Waze ↗</a>
+  </div></div>`;
+
 async function renderMap(rows) {
   const tok = ++mapTok;
   const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
-  if (mapObj) { mapObj.remove(); mapObj = null; }
-  $('#list').innerHTML = `<div id="map" style="height:64vh;border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-md)"></div>` +
-    (pts.length ? '' : '<div class="empty">אין דיווחים עם מיקום GPS בסינון הנוכחי.</div>');
+  killMaps();
+  $('#list').innerHTML = `
+    <div class="map-bar">
+      <div class="seg"><button type="button" class="${mapMode === 'all' ? 'on' : ''}" data-mm="all">🗺️ מפה כללית</button><button type="button" class="${mapMode === 'cities' ? 'on' : ''}" data-mm="cities">🏙️ לפי ערים</button></div>
+      <div class="legend"><span><i style="background:#059669"></i>אושר</span><span><i style="background:#e11d48"></i>לא אושר</span><span><i style="background:#0f4c81"></i>ממתין</span></div>
+      <span class="muted">${pts.length} מיקומים</span>
+    </div>
+    ${mapMode === 'all' ? '<div id="map" class="map-box"></div>' : '<div id="cityMaps"></div>'}
+    ${pts.length ? '' : '<div class="empty">אין דיווחים עם מיקום GPS בסינון הנוכחי.</div>'}`;
+  $('#list').onclick = e => { const b = e.target.closest('[data-open]'); if (b) openDetail(b.dataset.open); };
+  document.querySelectorAll('[data-mm]').forEach(b => b.onclick = () => { mapMode = b.dataset.mm; renderMap(rows); });
   try { await ensureLeaflet(); } catch (e) { if (tok === mapTok) $('#list').innerHTML = '<div class="err">טעינת המפה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.</div>'; return; }
-  if (tok !== mapTok || !$('#map')) return;
-  mapObj = L.map('map').setView([31.5, 34.9], 8);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
-  const bounds = [];
-  pts.forEach(({ r, g }) => {
-    L.marker([g.latitude, g.longitude]).addTo(mapObj).bindPopup(`<div dir="rtl" style="font-family:Heebo,sans-serif;min-width:190px">
-      <b style="font-size:14px;color:#0f4c81">${esc(r.project || 'דיווח')}</b><br>
-      <span style="font-size:12px;font-weight:700">${esc(r.company || '')}</span><br>
-      <span style="color:#64748b;font-size:12px">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span><br>
-      <span style="direction:ltr;unicode-bidi:embed;font-family:monospace;font-size:12px;color:#059669;font-weight:700">🧭 ${esc(ncText(g))}</span><br>
-      <div style="margin-top:8px;display:flex;gap:6px">
-        <button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600">פתיחת דיווח</button>
-        <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" style="padding:5px 9px;background:#f1f5f9;border-radius:6px;text-decoration:none;color:#0f172a;font-weight:600">ניווט ↗</a>
-      </div>
-    </div>`);
-    bounds.push([g.latitude, g.longitude]);
-  });
-  if (bounds.length) mapObj.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
-  mapObj.on('popupopen', e => { const b = e.popup.getElement().querySelector('[data-open]'); if (b) b.onclick = () => openDetail(b.dataset.open); });
-}
+  if (tok !== mapTok) return;
 
-/* Executive Styled Multi-Sheet Excel (.xlsx) Export – one row per work item, no merged text */
-const joinV = v => Array.isArray(v) ? v.join(', ') : (v ?? '');
-
-const XB = c => ({ style: 'thin', color: { rgb: c } });
-function styleWorksheet(ws, colWidths, opts = {}) {
-  const { linkCols = [], groupCol = null, centerCols = [], ltrCols = [], coordCols = [], numCols = [] } = opts;
-  ws['!views'] = [{ rightToLeft: true }];
-  ws['!cols'] = colWidths.map(w => ({ wch: w }));
-  if (!ws['!ref']) return;
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  ws['!autofilter'] = { ref: ws['!ref'] };
-
-  const headerStyle = {
-    font: { name: 'Arial', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '0F4C81' } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border: { top: XB('0A365C'), bottom: { style: 'medium', color: { rgb: '0A365C' } }, left: XB('0A365C'), right: XB('0A365C') }
-  };
-
-  let group = 0, prevKey = null;
-  for (let R = range.s.r; R <= range.e.r; ++R) {
-    if (R > 0 && groupCol !== null) {
-      const gc = ws[XLSX.utils.encode_cell({ r: R, c: groupCol })];
-      const key = gc ? String(gc.v) : '';
-      if (prevKey !== null && key !== prevKey) group++;
-      prevKey = key;
-    }
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const addr = XLSX.utils.encode_cell({ r: R, c: C });
-      let cell = ws[addr];
-      if (!cell) { if (R === 0) continue; cell = ws[addr] = { t: 's', v: '' }; }
-      if (R === 0) { cell.s = headerStyle; continue; }
-      const band = (groupCol !== null ? group : R) % 2 === 0;
-      const isLink = linkCols.includes(C) && typeof cell.v === 'string' && cell.v.startsWith('http');
-      if (isLink) { cell.l = { Target: cell.v, Tooltip: 'לחץ לפתיחה' }; cell.v = 'פתח'; }
-      if (coordCols.includes(C) && typeof cell.v === 'number') cell.z = '0.000000';
-      const center = centerCols.includes(C) || numCols.includes(C) || isLink;
-      cell.s = {
-        font: { name: 'Arial', sz: 10, bold: numCols.includes(C), color: { rgb: isLink ? '0284C7' : '0F172A' }, underline: isLink },
-        fill: { fgColor: { rgb: band ? 'F1F5F9' : 'FFFFFF' } },
-        alignment: { horizontal: ltrCols.includes(C) || coordCols.includes(C) ? 'left' : (center ? 'center' : 'right'), vertical: 'center', wrapText: true },
-        border: { top: XB('CBD5E1'), bottom: XB('CBD5E1'), left: XB('CBD5E1'), right: XB('CBD5E1') }
-      };
-    }
+  if (mapMode === 'all') {
+    if (!$('#map')) return;
+    mapObj = L.map('map', { zoomControl: true }).setView([31.5, 34.9], 8);
+    addBase(mapObj);
+    const bounds = [];
+    pts.forEach(({ r, g }) => { L.marker([g.latitude, g.longitude], { icon: pinIcon(r) }).addTo(mapObj).bindPopup(popupHtml(r, g)); bounds.push([g.latitude, g.longitude]); });
+    if (bounds.length) mapObj.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
+    [100, 400, 1000].forEach(t => setTimeout(() => { if (mapObj) mapObj.invalidateSize(); }, t));
+    return;
   }
-  ws['!rows'] = [{ hpt: 30 }];
-}
 
-
-/* ייצוא מיקומים (נ.צ) לפי ערים: תיקייה לכל עיר, בתוכה KML (Google Earth / My Maps) ו-CSV, עם שיוך לגוב / עמוד */
-function unitLabelOf(r) {
-  const set = new Set();
-  const u0 = unitOf(r, null); if (u0) u0.text.split(' · ').forEach(t => set.add(t));
-  photosOf(r).forEach(p => { const u = unitOf(r, p); if (u) u.text.split(' · ').forEach(t => set.add(t)); });
-  return [...set].join(' · ');
-}
-const safeName = t => String(t || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80) || 'ללא שם';
-const xmlEsc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
-const csvCell = v => { const t = String(v ?? '').replace(/"/g, '""'); return /[",\n\r]/.test(t) ? `"${t}"` : t; };
-async function exportLocationsZip() {
-  const rows = filtered().map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
-  if (!rows.length) { showToast('אין דיווחים עם נ.צ בסינון הנוכחי'); return; }
-  if (typeof JSZip === 'undefined') { showToast('ספריית ה-ZIP עדיין נטענת, נסה שוב בעוד רגע'); return; }
+  // תצוגה לפי ערים: כרטיס לכל עיר – מפה, נ.צ ומספר גוב/עמוד לכל נקודה
   const byCity = new Map();
-  rows.forEach(x => { const c = safeName(x.r.city || 'ללא עיר'); if (!byCity.has(c)) byCity.set(c, []); byCity.get(c).push(x); });
-  const mk = list => '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n' + list.map(({ r, g }) => {
-    const unit = unitLabelOf(r) || 'ללא גוב/עמוד';
-    const desc = [`דיווח #${r.report_id}`, r.project && `פרויקט: ${r.project}`, r.company && `חברה: ${r.company}`, r.contractor_name && `קבלן: ${r.contractor_name}`, r.date && `תאריך: ${r.date}`, (r.city || r.address) && `כתובת: ${[r.city, r.address].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
-    return `<Placemark><name>${xmlEsc(unit)}</name><description>${xmlEsc(desc)}</description><Point><coordinates>${+g.longitude},${+g.latitude},0</coordinates></Point></Placemark>`;
-  }).join('\n') + '\n</Document></kml>';
-  const head = ['עיר', 'גוב / עמוד', 'קו רוחב', 'קו אורך', 'נ.צ', 'קישור Google Maps', 'מזהה דיווח', 'פרויקט', 'חברה', 'קבלן', 'תאריך', 'כתובת'];
-  const mkCsv = list => '\ufeff' + [head, ...list.map(({ r, g }) => [r.city || 'ללא עיר', unitLabelOf(r) || 'ללא גוב/עמוד', +g.latitude, +g.longitude, ncText(g), `https://www.google.com/maps?q=${g.latitude},${g.longitude}`, r.report_id, r.project, r.company, r.contractor_name, r.date, r.address])].map(a => a.map(csvCell).join(',')).join('\r\n');
-  const zip = new JSZip();
-  const root = zip.folder('מיקומים');
-  for (const [city, list] of [...byCity].sort((a, b) => a[0].localeCompare(b[0], 'he'))) {
-    const f = root.folder(city);
-    f.file(`${city}.kml`, mk(list));
-    f.file(`${city}.csv`, mkCsv(list));
-  }
-  root.file('כל המיקומים.csv', mkCsv(rows));
-  root.file('כל המיקומים.kml', mk(rows));
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `מיקומים-לפי-ערים-${today()}.zip`;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  showToast(`נשמרו ${rows.length} מיקומים ב-${byCity.size} ערים`);
+  pts.forEach(x => { const c = (x.r.city || '').trim() || 'ללא עיר'; if (!byCity.has(c)) byCity.set(c, []); byCity.get(c).push(x); });
+  const cities = [...byCity.entries()].sort((a, b) => b[1].length - a[1].length);
+  $('#cityMaps').innerHTML = cities.map(([city, list], ci) => `
+    <section class="city-card">
+      <div class="city-head"><h3>🏙️ ${esc(city)}</h3><span class="city-count">${list.length} מיקומים</span></div>
+      <div class="city-body">
+        <div class="city-map" id="cm-${ci}"></div>
+        <div class="city-pts">${list.map(({ r, g }, pi) => {
+          const u = unitOf(r, null);
+          return `<div class="cp" data-focus="${ci}:${pi}">
+            <div class="cp-top"><i class="dot" style="background:${STATUS_COLOR(r)}"></i><b>${esc(u ? u.text : 'ללא גוב/עמוד')}</b><span class="cp-sub">${esc(r.project || '')} · ${esc(r.date || '')}</span></div>
+            <div class="cp-nc"><span class="nc-chip">🧭 נ.צ ${esc(ncText(g))}</span></div>
+            <div class="cp-act">
+              <button type="button" onclick="event.stopPropagation();copyNC('${esc(ncText(g))}')">📋 העתק נ.צ</button>
+              <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" onclick="event.stopPropagation()">Google ↗</a>
+              <a target="_blank" rel="noopener" href="https://waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes" onclick="event.stopPropagation()">Waze ↗</a>
+              <button type="button" data-open="${esc(r.report_id)}">פתיחת דיווח</button>
+            </div></div>`;
+        }).join('')}</div>
+      </div>
+    </section>`).join('');
+  cities.forEach(([city, list], ci) => {
+    const el = document.getElementById('cm-' + ci); if (!el) return;
+    const m = L.map(el, { scrollWheelZoom: false }).setView([list[0].g.latitude, list[0].g.longitude], 15);
+    addBase(m);
+    const markers = list.map(({ r, g }) => L.marker([g.latitude, g.longitude], { icon: pinIcon(r) }).addTo(m).bindPopup(popupHtml(r, g)));
+    m.fitBounds(list.map(x => [x.g.latitude, x.g.longitude]), { padding: [30, 30], maxZoom: 17 });
+    cityMaps.push(m);
+    el.closest('.city-card').querySelectorAll('[data-focus]').forEach(c => c.onclick = () => {
+      const pi = +c.dataset.focus.split(':')[1];
+      m.setView(markers[pi].getLatLng(), 18); markers[pi].openPopup();
+    });
+    [100, 500, 1200].forEach(t => setTimeout(() => { try { m.invalidateSize(); } catch (e) {} }, t));
+  });
 }
 
-function exportExcelStyled() {
-  const rows = filtered();
-  if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
-  if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
+/* ===================== ייצוא אקסל מקצועי ===================== */
+const joinV = v => Array.isArray(v) ? v.join(', ') : (v ?? '');
+const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+const monthKeyOf = r => { const m = /^(\d{4})-(\d{2})/.exec(String(r.date || '')) || /^(\d{4})-(\d{2})/.exec(String(r.created_at || '')); return m ? `${m[1]}-${m[2]}` : null; };
+const monthLabelOf = key => { const [y, m] = key.split('-'); return `${HE_MONTHS[+m - 1]} ${y}`; };
+const XB = c => ({ style: 'thin', color: { rgb: c } });
+const BORD = { top: XB('CBD5E1'), bottom: XB('CBD5E1'), left: XB('CBD5E1'), right: XB('CBD5E1') };
+const GROUP_COLORS = { 'פרטי הדיווח': ['0A365C', '0F4C81'], 'סעיפי עבודה': ['115E59', '0F766E'], 'נתונים נוספים': ['475569', '64748B'], 'אישור': ['92400E', 'B45309'], 'מיקום': ['1E293B', '334155'] };
 
-  // שורות שהן רק תמונות (למשל "תמונת סל איסוף: 1 תמונות") לא נכנסות לאקסל; מס׳ גוב/עמוד מופיע בעמודה משלו
-  const isPhotoLine = (k, v) => /תמונ|צילום|photo|image|img|pic/i.test(String(k)) || /^\s*(\d+\s*)?תמונ(ה|ות)\s*(\d+)?\s*$/.test(String(joinV(v)));
-  const workLines = r => linesOf(r).filter(([k, v]) => !UNIT_NUM_RE.test(String(k)) && !isPhotoLine(k, v));
+function simpleSheet(title, head, data, widths, numCols = [], total = null) {
+  const N = head.length;
+  const aoa = [[title, ...Array(N - 1).fill('')], Array(N).fill(''), head, ...data];
+  if (total) aoa.push(total);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: N - 1 } }];
+  ws['!cols'] = widths.map(w => ({ wch: w }));
+  ws['!views'] = [{ rightToLeft: true, RTL: true, showGridLines: false }];
+  ws['!rows'] = [{ hpt: 34 }, { hpt: 6 }, { hpt: 30 }];
+  const lastR = aoa.length - 1;
+  for (let R = 0; R <= lastR; R++) for (let C = 0; C < N; C++) {
+    const addr = XLSX.utils.encode_cell({ r: R, c: C });
+    const cell = ws[addr] || (ws[addr] = { t: 's', v: '' });
+    if (R === 0) cell.s = { font: { name: 'Arial', sz: 16, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0A2A4A' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 } };
+    else if (R === 1) continue;
+    else if (R === 2) cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F4C81' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: { ...BORD, bottom: { style: 'medium', color: { rgb: '0A365C' } } } };
+    else if (total && R === lastR) cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: '0A365C' } }, fill: { fgColor: { rgb: 'E2E8F0' } }, alignment: { horizontal: numCols.includes(C) ? 'center' : 'right', vertical: 'center' }, border: { ...BORD, top: { style: 'medium', color: { rgb: '0A365C' } } } };
+    else cell.s = { font: { name: 'Arial', sz: 10, bold: numCols.includes(C), color: { rgb: '0F172A' } }, fill: { fgColor: { rgb: (R % 2) ? 'FFFFFF' : 'F1F5F9' } }, alignment: { horizontal: numCols.includes(C) ? 'center' : 'right', vertical: 'center', wrapText: true }, border: BORD };
+  }
+  if (data.length) ws['!autofilter'] = { ref: `${XLSX.utils.encode_cell({ r: 2, c: 0 })}:${XLSX.utils.encode_cell({ r: 2 + data.length, c: N - 1 })}` };
+  return ws;
+}
+
+function buildWorkbook(rows, title, subtitle) {
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
-  const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
   const scalar = v => (v && typeof v === 'object') ? (Array.isArray(v) ? v.join(', ') : JSON.stringify(v)) : (v ?? '');
-
-  // כל שדות המידע הנוספים של הדיווח (מעבר לשדות הבסיס) – נאספים אוטומטית
-  const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
-  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
-  const extraKeys = [];
-  const isPhotoKey = k => /תמונ|photo|image|img|pic/i.test(k);
-  const addExtra = k => { if (!isPhotoKey(k) && !extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./,''))) extraKeys.push(k); };
-  rows.forEach(r => {
-    Object.keys(r).forEach(k => { if (!skip.has(k) && r[k] != null && r[k] !== '') addExtra(k); });
-    const dt = parseJ(r.details);
-    if (dt && typeof dt === 'object') Object.keys(dt).forEach(k => { if (k !== 'lines' && k !== 'gps' && dt[k] != null && dt[k] !== '') addExtra('details.' + k); });
-  });
-  const extraVal = (r, k) => {
-    if (k.startsWith('details.')) { const dt = parseJ(r.details); return scalar(dt && dt[k.slice(8)]); }
-    return scalar(r[k]);
-  };
-  const extraLabel = k => LABELS[k] || k.replace(/^details\./, '');
+  const mapLink = g => g ? `https://www.google.com/maps?q=${g.latitude},${g.longitude}` : '';
   const fmtCreated = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString('he-IL'); };
-
-  const unitOfRow = r => { const u = unitOf(r, null); return u ? u.text : ''; };
-  const locHead = ['נ.צ', 'קו רוחב (Lat)', 'קו אורך (Lon)', 'ניווט'];
-  const locCells = r => { const g = gpsOf(r); return [g ? ncText(g) : 'ללא מיקום', g ? +(+g.latitude).toFixed(6) : '', g ? +(+g.longitude).toFixed(6) : '', mapLink(g)]; };
-
-  // שדות שהם בעצם עמודות רגילות (תאריך / פרויקט / עיר / כתובת) – לא נספרים כסעיף עבודה ולא מוכפלים
+  const isPhotoLine = (k, v) => /תמונ|צילום|photo|image|img|pic/i.test(String(k)) || /^\s*(\d+\s*)?תמונ(ה|ות)\s*(\d+)?\s*$/.test(String(joinV(v)));
+  const workLines = r => linesOf(r).filter(([k, v]) => !UNIT_NUM_RE.test(String(k)) && !isPhotoLine(k, v));
   const canonOf = name => {
     const t = String(name).replace(/[:׳']/g, '').trim();
     if (/^(תאריך|תאריך ביצוע)$/.test(t)) return 'date';
@@ -1768,7 +1777,21 @@ function exportExcelStyled() {
     return null;
   };
 
-  // איסוף שדות הדיווח לפי סדר הטופס: כל שדה = עמודה; אם אותו שדה חוזר באותו דיווח – עמודה נוספת (כבל, כבל (2)…)
+  // שדות נוספים (מעבר לבסיס) – נאספים אוטומטית, בלי תמונות
+  const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
+  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
+  const isPhotoKey = k => /תמונ|photo|image|img|pic/i.test(k);
+  const extraKeys = [];
+  const addExtra = k => { if (!isPhotoKey(k) && !extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./, ''))) extraKeys.push(k); };
+  rows.forEach(r => {
+    Object.keys(r).forEach(k => { if (!skip.has(k) && r[k] != null && r[k] !== '') addExtra(k); });
+    const dt = parseJ(r.details);
+    if (dt && typeof dt === 'object') Object.keys(dt).forEach(k => { if (k !== 'lines' && k !== 'gps' && dt[k] != null && dt[k] !== '') addExtra('details.' + k); });
+  });
+  const extraVal = (r, k) => { if (k.startsWith('details.')) { const dt = parseJ(r.details); return scalar(dt && dt[k.slice(8)]); } return scalar(r[k]); };
+  const extraLabel = k => LABELS[k] || k.replace(/^details\./, '');
+
+  // סעיפי העבודה: כל סעיף = עמודה; סעיף שחוזר באותו דיווח = עמודה נוספת
   const totals = new Map(), itemNames = [], maxOcc = new Map();
   const perReport = rows.map(r => {
     const m = new Map(), cnt = new Map();
@@ -1791,35 +1814,152 @@ function exportExcelStyled() {
   });
   const itemCols = [];
   itemNames.forEach(nm => { for (let c = 1; c <= maxOcc.get(nm); c++) itemCols.push({ key: nm + '\u0000' + c, label: c === 1 ? nm : `${nm} (${c})` }); });
-
-  // גליון 1 – דיווחים: שורה אחת לכל דיווח; תאריך, פרויקט, עיר, כתובת ושאר שדות הטופס (עד טקסט חופשי) – כל אחד בעמודה נפרדת; המיקום בסוף
-  const nI = itemCols.length, nE = extraKeys.length;
-  const s1 = [['מזהה דיווח', 'חברה / לקוח', 'קבלן מבצע', 'תאריך ביצוע', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד',
-    ...itemCols.map(c => c.label), ...extraKeys.map(extraLabel), 'זמן קליטה במערכת', 'סטטוס אישור', 'הערת אישור', 'אושר ע״י', 'תאריך אישור', ...locHead]];
-  rows.forEach((r, i) => {
-    const t = perReport[i].top;
-    s1.push([r.report_id || '', r.company || '', r.contractor_name || '', t.date, t.project, t.city, t.address, unitOfRow(r),
-      ...itemCols.map(c => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''),
-      ...extraKeys.map(k => extraVal(r, k)), fmtCreated(r.created_at),
-      r.approval_status === 'approved' ? 'אושר' : r.approval_status === 'rejected' ? 'לא אושר' : 'ממתין', r.approval_note || '', r.approved_by || '', fmtCreated(r.approved_at), ...locCells(r)]);
-  });
-  const cNC = 13 + nI + nE, cLat = cNC + 1, cLon = cNC + 2, cMap = cNC + 3;
   const longText = l => /טקסט|הערות|הערה|תיאור|פירוט/.test(l);
-  const w1 = XLSX.utils.aoa_to_sheet(s1);
-  styleWorksheet(w1, [16, 16, 18, 13, 24, 14, 24, 16,
-      ...itemCols.map(c => longText(c.label) ? 42 : Math.min(26, Math.max(12, c.label.length + 3))), ...extraKeys.map(() => 18), 18, 14, 30, 20, 18, 26, 14, 14, 9],
-    { linkCols: [cMap], centerCols: [3, 7, cNC], ltrCols: [cNC], coordCols: [cLat, cLon], numCols: itemCols.filter(c => !longText(c.label)).map(c => 8 + itemCols.indexOf(c)) });
-  XLSX.utils.book_append_sheet(wb, w1, 'דיווחים');
+  const stText = r => r.approval_status === 'approved' ? 'אושר' : r.approval_status === 'rejected' ? 'לא אושר' : 'ממתין';
 
-  // גליון סיכום כמויות לפי סעיף
-  const s3 = [['סעיף / סוג עבודה', 'מס׳ דיווחים', 'מס׳ הופעות', 'סה״כ כמות']];
-  [...totals].sort((a, b) => a[0].localeCompare(b[0], 'he')).forEach(([k, t]) => s3.push([k, t.reports.size, t.count, t.hasNum ? t.sum : '']));
-  const w3 = XLSX.utils.aoa_to_sheet(s3);
-  styleWorksheet(w3, [36, 14, 14, 16], { numCols: [1, 2, 3] });
-  XLSX.utils.book_append_sheet(wb, w3, 'סיכום סעיפים');
+  const cols = [];
+  const add = (group, label, type, w, get) => cols.push({ group, label, type, w, get });
+  add('פרטי הדיווח', 'מזהה דיווח', 'text', 17, r => r.report_id || '');
+  add('פרטי הדיווח', 'חברה / לקוח', 'text', 16, r => r.company || '');
+  add('פרטי הדיווח', 'קבלן מבצע', 'text', 18, r => r.contractor_name || '');
+  add('פרטי הדיווח', 'תאריך ביצוע', 'center', 13, (r, i) => perReport[i].top.date);
+  add('פרטי הדיווח', 'פרויקט / אתר', 'text', 24, (r, i) => perReport[i].top.project);
+  add('פרטי הדיווח', 'עיר', 'text', 14, (r, i) => perReport[i].top.city);
+  add('פרטי הדיווח', 'כתובת', 'text', 26, (r, i) => perReport[i].top.address);
+  add('פרטי הדיווח', 'גוב / עמוד', 'center', 14, r => { const u = unitOf(r, null); return u ? u.text : ''; });
+  itemCols.forEach(c => add('סעיפי עבודה', c.label, longText(c.label) ? 'long' : 'num', longText(c.label) ? 44 : Math.min(24, Math.max(12, c.label.length + 3)), (r, i) => perReport[i].has(c.key) ? perReport[i].get(c.key) : ''));
+  extraKeys.forEach(k => add('נתונים נוספים', extraLabel(k), 'text', 18, r => extraVal(r, k)));
+  add('נתונים נוספים', 'זמן קליטה במערכת', 'center', 19, r => fmtCreated(r.created_at));
+  add('אישור', 'סטטוס אישור', 'status', 14, r => stText(r));
+  add('אישור', 'הערת אישור', 'long', 32, r => r.approval_note || '');
+  add('אישור', 'אושר ע״י', 'text', 22, r => r.approved_by || '');
+  add('אישור', 'תאריך אישור', 'center', 19, r => fmtCreated(r.approved_at));
+  add('מיקום', 'נ.צ', 'ltr', 26, r => { const g = gpsOf(r); return g ? ncText(g) : 'ללא מיקום'; });
+  add('מיקום', 'קו רוחב (Lat)', 'coord', 14, r => { const g = gpsOf(r); return g ? +(+g.latitude).toFixed(6) : ''; });
+  add('מיקום', 'קו אורך (Lon)', 'coord', 14, r => { const g = gpsOf(r); return g ? +(+g.longitude).toFixed(6) : ''; });
+  add('מיקום', 'ניווט', 'link', 13, r => mapLink(gpsOf(r)));
 
-  XLSX.writeFile(wb, `דוח-בקרה-שורה-לדיווח-${today()}.xlsx`);
-  showToast('קובץ האקסל המעוצב הורד בהצלחה!');
+  const NC = cols.length, LAST = NC - 1, GROW = 4, HDR = 5, R0 = 6;
+  const nA = rows.filter(r => r.approval_status === 'approved').length, nR = rows.filter(r => r.approval_status === 'rejected').length;
+  const kpi = `סה״כ ${rows.length} דיווחים   ·   ✓ ${nA} אושרו   ·   ⏳ ${rows.length - nA - nR} ממתינים   ·   ✕ ${nR} לא אושרו   ·   ${new Set(rows.map(r => r.contractor_name).filter(Boolean)).size} קבלנים   ·   ${new Set(rows.map(r => (r.city || '').trim()).filter(Boolean)).size} ערים`;
+  const blank = () => Array(NC).fill('');
+  const aoa = [[title, ...Array(LAST).fill('')], [subtitle, ...Array(LAST).fill('')], [kpi, ...Array(LAST).fill('')], blank(), cols.map(c => c.group), cols.map(c => c.label)];
+  rows.forEach((r, i) => aoa.push(cols.map(c => c.get(r, i))));
+  const totRow = cols.map((c, ci) => ci === 0 ? 'סה״כ' : (c.type === 'num' ? rows.reduce((a, _, i) => { const v = c.get(rows[i], i); return a + (typeof v === 'number' ? v : 0); }, 0) || '' : ''));
+  aoa.push(totRow);
+  aoa.push([`הופק מתוך לוח ניהול ובקרה · ${new Date().toLocaleString('he-IL')}`, ...Array(LAST).fill('')]);
+  const TROW = R0 + rows.length, FROW = TROW + 1;
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const merges = [0, 1, 2, FROW].map(r => ({ s: { r, c: 0 }, e: { r, c: LAST } }));
+  let gs = 0;
+  for (let c = 1; c <= NC; c++) if (c === NC || cols[c].group !== cols[gs].group) { if (c - 1 > gs) merges.push({ s: { r: GROW, c: gs }, e: { r: GROW, c: c - 1 } }); gs = c; }
+  ws['!merges'] = merges;
+  ws['!cols'] = cols.map(c => ({ wch: c.w }));
+  ws['!views'] = [{ rightToLeft: true, RTL: true, showGridLines: false }];
+  const hts = []; hts[0] = { hpt: 36 }; hts[1] = { hpt: 22 }; hts[2] = { hpt: 26 }; hts[3] = { hpt: 6 }; hts[GROW] = { hpt: 22 }; hts[HDR] = { hpt: 38 };
+  ws['!rows'] = hts;
+
+  for (let R = 0; R <= FROW; R++) for (let C = 0; C < NC; C++) {
+    const addr = XLSX.utils.encode_cell({ r: R, c: C });
+    const cell = ws[addr] || (ws[addr] = { t: 's', v: '' });
+    const col = cols[C], gc = GROUP_COLORS[col.group] || ['334155', '475569'];
+    if (R === 0) cell.s = { font: { name: 'Arial', sz: 18, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0A2A4A' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 } };
+    else if (R === 1) cell.s = { font: { name: 'Arial', sz: 11, color: { rgb: 'BAE6FD' } }, fill: { fgColor: { rgb: '0F4C81' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 } };
+    else if (R === 2) cell.s = { font: { name: 'Arial', sz: 11, bold: true, color: { rgb: '0A365C' } }, fill: { fgColor: { rgb: 'E0F2FE' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 }, border: { bottom: XB('7DD3FC') } };
+    else if (R === 3) continue;
+    else if (R === GROW) cell.s = { font: { name: 'Arial', sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: gc[0] } }, alignment: { horizontal: 'center', vertical: 'center' }, border: { left: XB('FFFFFF'), right: XB('FFFFFF') } };
+    else if (R === HDR) cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: gc[1] } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: { top: XB('FFFFFF'), left: XB('FFFFFF'), right: XB('FFFFFF'), bottom: { style: 'medium', color: { rgb: gc[0] } } } };
+    else if (R === TROW) cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: '0A365C' } }, fill: { fgColor: { rgb: 'E2E8F0' } }, alignment: { horizontal: col.type === 'num' ? 'center' : 'right', vertical: 'center' }, border: { ...BORD, top: { style: 'medium', color: { rgb: '0A365C' } } } };
+    else if (R === FROW) cell.s = { font: { name: 'Arial', sz: 9, italic: true, color: { rgb: '94A3B8' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 } };
+    else {
+      const t = col.type, band = (R - R0) % 2 === 0;
+      let fill = band ? 'FFFFFF' : 'F1F5F9', fc = '0F172A', bold = false, hz = 'right', ul = false;
+      if (t === 'num') { hz = 'center'; bold = true; if (typeof cell.v === 'number') cell.z = '#,##0.##'; }
+      else if (t === 'center') hz = 'center';
+      else if (t === 'ltr' || t === 'coord') { hz = 'left'; if (typeof cell.v === 'number') cell.z = '0.000000'; }
+      else if (t === 'status') {
+        hz = 'center'; bold = true;
+        if (cell.v === 'אושר') { fill = 'D1FAE5'; fc = '065F46'; } else if (cell.v === 'לא אושר') { fill = 'FEE2E2'; fc = '991B1B'; } else { fill = 'FEF3C7'; fc = '92400E'; }
+      } else if (t === 'link' && typeof cell.v === 'string' && cell.v.startsWith('http')) {
+        cell.l = { Target: cell.v, Tooltip: 'פתח במפה' }; cell.v = 'פתח במפה'; fc = '0284C7'; ul = true; hz = 'center';
+      }
+      cell.s = { font: { name: 'Arial', sz: 10, bold, underline: ul, color: { rgb: fc } }, fill: { fgColor: { rgb: fill } }, alignment: { horizontal: hz, vertical: 'center', wrapText: true }, border: BORD };
+    }
+  }
+  if (rows.length) ws['!autofilter'] = { ref: `${XLSX.utils.encode_cell({ r: HDR, c: 0 })}:${XLSX.utils.encode_cell({ r: TROW - 1, c: LAST })}` };
+  XLSX.utils.book_append_sheet(wb, ws, 'דיווחים');
+
+  // סיכום סעיפים
+  const itemRows = [...totals].sort((a, b) => a[0].localeCompare(b[0], 'he')).map(([k, t]) => [k, t.reports.size, t.count, t.hasNum ? t.sum : '']);
+  XLSX.utils.book_append_sheet(wb, simpleSheet('סיכום כמויות לפי סעיף עבודה', ['סעיף / סוג עבודה', 'מס׳ דיווחים', 'מס׳ הופעות', 'סה״כ כמות'], itemRows, [40, 16, 16, 18], [1, 2, 3]), 'סיכום סעיפים');
+
+  // סיכום קבלנים
+  const byC = new Map();
+  rows.forEach(r => { const k = r.contractor_name || 'ללא קבלן'; const o = byC.get(k) || { n: 0, a: 0, x: 0, cities: new Set() }; o.n++; if (r.approval_status === 'approved') o.a++; else if (r.approval_status === 'rejected') o.x++; if (r.city) o.cities.add(r.city.trim()); byC.set(k, o); });
+  const conRows = [...byC].sort((a, b) => b[1].n - a[1].n).map(([k, o]) => [k, o.n, o.a, o.n - o.a - o.x, o.x, o.cities.size]);
+  const tot = conRows.reduce((a, r) => [a[0], a[1] + r[1], a[2] + r[2], a[3] + r[3], a[4] + r[4], ''], ['סה״כ', 0, 0, 0, 0, '']);
+  XLSX.utils.book_append_sheet(wb, simpleSheet('סיכום לפי קבלן', ['קבלן', 'דיווחים', 'אושרו', 'ממתינים', 'לא אושרו', 'ערים'], conRows, [28, 14, 14, 14, 14, 12], [1, 2, 3, 4, 5], tot), 'סיכום קבלנים');
+  return wb;
+}
+
+/* ייצוא לפי הסינון הנוכחי – הורדה רגילה */
+function exportExcelStyled() {
+  const rows = filtered();
+  if (!rows.length) { showToast('אין נתונים לייצוא בסינון הנוכחי'); return; }
+  if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
+  XLSX.writeFile(buildWorkbook(rows, 'דוח ביצוע עבודות', `לפי הסינון הנוכחי · ${rows.length} דיווחים · הופק ב-${new Date().toLocaleDateString('he-IL')}`), `דוח-בקרה-${today()}.xlsx`);
+  showToast('קובץ האקסל הורד בהצלחה!');
+}
+
+/* ייצוא חודשי: קובץ לכל חודש ("נובמבר 2026"); קבצי חודשים קודמים עוברים לתיקייה "דוח חודשי" */
+const idbOpen = () => new Promise((res, rej) => { const q = indexedDB.open('dash_fs', 1); q.onupgradeneeded = () => q.result.createObjectStore('h'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+const idbGet = async k => { try { const d = await idbOpen(); return await new Promise(res => { const r = d.transaction('h').objectStore('h').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }); } catch (e) { return null; } };
+const idbSet = async (k, v) => { try { const d = await idbOpen(); await new Promise(res => { const t = d.transaction('h', 'readwrite'); t.objectStore('h').put(v, k); t.oncomplete = res; t.onerror = res; }); } catch (e) {} };
+async function getBaseDir(repick) {
+  if (!window.showDirectoryPicker) return null;
+  let h = repick ? null : await idbGet('dir');
+  if (h) { try { let pm = await h.queryPermission({ mode: 'readwrite' }); if (pm !== 'granted') pm = await h.requestPermission({ mode: 'readwrite' }); if (pm !== 'granted') h = null; } catch (e) { h = null; } }
+  if (!h) { h = await window.showDirectoryPicker({ mode: 'readwrite', id: 'dash-excel' }); await idbSet('dir', h); }
+  return h;
+}
+async function writeFileTo(dir, name, data) { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(data); await w.close(); }
+
+async function exportExcelMonthly(repick) {
+  if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
+  let dir = null;
+  try { dir = await getBaseDir(repick); } catch (e) { if (e && e.name === 'AbortError') return; dir = null; }
+  const byMonth = new Map();
+  [...reports].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).forEach(r => { const k = monthKeyOf(r); if (!k) return; if (!byMonth.has(k)) byMonth.set(k, []); byMonth.get(k).push(r); });
+  const now = new Date(), curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const mk = k => buildWorkbook(byMonth.get(k) || [], `דוח ביצוע עבודות – ${monthLabelOf(k)}`, `חודש ${monthLabelOf(k)} · הופק ב-${now.toLocaleDateString('he-IL')} · ${(byMonth.get(k) || []).length} דיווחים`);
+  const bytes = wb => XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const curName = `${monthLabelOf(curKey)}.xlsx`;
+  if (!dir) { XLSX.writeFile(mk(curKey), curName); showToast(`הקובץ "${curName}" הורד. לשמירה אוטומטית בתיקיות – יש להשתמש בכרום / אדג׳ במחשב.`); return; }
+  try {
+    await writeFileTo(dir, curName, bytes(mk(curKey)));
+    const arch = await dir.getDirectoryHandle('דוח חודשי', { create: true });
+    const prevKeys = [...byMonth.keys()].filter(k => k < curKey).sort(), latestPrev = prevKeys[prevKeys.length - 1];
+    for (const k of prevKeys) {
+      const nm = `${monthLabelOf(k)}.xlsx`;
+      let exists = true; try { await arch.getFileHandle(nm); } catch (e) { exists = false; }
+      if (!exists || k === latestPrev) await writeFileTo(arch, nm, bytes(mk(k)));
+    }
+    // קבצי חודשים קודמים שנשארו בתיקייה הראשית – עוברים לתיקיית "דוח חודשי"
+    const re = new RegExp('^(' + HE_MONTHS.join('|') + ') (\\d{4})\\.xlsx$');
+    for await (const [nm, h] of dir.entries()) {
+      const m = h.kind === 'file' && re.exec(nm); if (!m || nm === curName) continue;
+      const key = `${m[2]}-${String(HE_MONTHS.indexOf(m[1]) + 1).padStart(2, '0')}`;
+      if (key >= curKey) continue;
+      let exists = true; try { await arch.getFileHandle(nm); } catch (e) { exists = false; }
+      if (!exists) await writeFileTo(arch, nm, await (await h.getFile()).arrayBuffer());
+      await dir.removeEntry(nm);
+    }
+    showToast(`נשמר: ${curName} · קבצי חודשים קודמים בתיקייה "דוח חודשי"`);
+  } catch (e) {
+    XLSX.writeFile(mk(curKey), curName);
+    showToast('לא ניתן לכתוב לתיקייה – הקובץ הורד כרגיל');
+  }
 }
 
 const photoUrl = (id, name) => `${SB}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(id)}/${encodeURIComponent(name)}`;
@@ -1868,7 +2008,7 @@ async function openDetail(id) {
       <div class="lbl">🧭 נ.צ – נקודת ציון (GPS מאומת)</div>
       <div class="val"><span class="nc-chip" style="font-size:15px">${esc(ncText(gps))}</span></div>
       <div class="nc-actions">
-        <button type="button" onclick="copyNC('${jsa(ncText(gps))}')">📋 העתק נ.צ</button>
+        <button type="button" onclick="copyNC('${esc(ncText(gps))}')">📋 העתק נ.צ</button>
         <a href="${mapUrl}" target="_blank" rel="noopener">🗺️ Google Maps ↗</a>
         <a href="https://waze.com/ul?ll=${gps.latitude},${gps.longitude}&navigate=yes" target="_blank" rel="noopener">🚗 Waze ↗</a>
       </div>
@@ -1960,11 +2100,11 @@ async function openDetail(id) {
     <div class="photos-grid">
       ${arr.map(i => `
         <div class="photo-card">
-          <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')">
+          <img loading="lazy" src="${esc(i.url)}" onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')">
           <div class="photo-actions">
-            <button onclick="openLightbox('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')" title="הגדל תמונה">🔍 הגדל</button>
-            <button onclick="sharePhoto('${jsa(i.url)}', '${jsa(r.project || 'דיווח')} - ${jsa(cat)}')" title="שלח בוואטסאפ / שתף">📤 שלח</button>
-            <button onclick="copyPhotoLink('${jsa(i.url)}')" title="העתק קישור">🔗</button>
+            <button onclick="openLightbox('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')" title="הגדל תמונה">🔍 הגדל</button>
+            <button onclick="sharePhoto('${esc(i.url)}', '${esc(r.project || 'דיווח')} - ${esc(cat)}')" title="שלח בוואטסאפ / שתף">📤 שלח</button>
+            <button onclick="copyPhotoLink('${esc(i.url)}')" title="העתק קישור">🔗</button>
           </div>
         </div>
       `).join('')}
@@ -1999,20 +2139,25 @@ async function openDetail(id) {
     setTimeout(() => window.print(), 350);
   };
 
-  // שמירה בשם: קובץ PDF אמיתי. קודם מייצרים את ה-PDF ורק אחר כך בוחרים מיקום – כך אף פעם לא נשמר קובץ ריק.
-  // בכרום/אדג׳ במחשב נפתח חלון לבחירת תיקייה ושם; בשאר הדפדפנים הקובץ יורד לתיקיית ההורדות.
-  const doSave = async () => {
+  // שמירה בשם: קובץ PDF אמיתי. בכרום/אדג׳ במחשב נפתח חלון לבחירת תיקייה ושם; בשאר הדפדפנים הקובץ יורד לתיקיית ההורדות.
+  const loadLib = (src, ready) => new Promise((res, rej) => {
+    if (ready()) return res();
+    const sc = document.createElement('script'); sc.src = src; sc.onload = () => (ready() ? res() : rej(new Error('lib'))); sc.onerror = () => rej(new Error('lib'));
+    document.head.appendChild(sc);
+  });
+  $('#sv').onclick = async () => {
     const btn = $('#sv'), label = btn.textContent;
     const name = `דוח-${String(r.project || 'ביצוע').replace(/[\\/:*?"<>|]/g, '_')}-${String(r.report_id).replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
+    let handle = null;
+    if (window.showSaveFilePicker) {
+      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] }); }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
     btn.disabled = true; btn.textContent = 'מכין PDF…';
-    let host = null;
+    let overlay = null;
     try {
-      if (!window.html2pdf) await new Promise((res, rej) => {
-        const sc = document.createElement('script');
-        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-        sc.onload = res; sc.onerror = () => rej(new Error('lib')); document.head.appendChild(sc);
-      });
-      if (!window.html2pdf) throw new Error('lib');
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', () => window.html2canvas);
+      await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf);
       const urlMap = {};
       await Promise.all(items.map(async i => {
         try {
@@ -2020,45 +2165,37 @@ async function openDetail(id) {
           urlMap[i.url] = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
         } catch (e) { /* ללא הטמעה – נשאר קישור */ }
       }));
-      host = document.createElement('div');
-      host.setAttribute('dir', 'rtl');
-      // חשוב: האלמנט חייב להיות בתוך אזור התצוגה (לא מחוץ למסך), אחרת הרינדור יוצא ריק
-      host.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;pointer-events:none;width:718px;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif';
-      host.innerHTML = '<style>' +
-        '.p{page-break-after:always;display:block;text-align:center;padding:0;min-height:0}.p:last-child{page-break-after:auto}' +
-        '.p img{max-width:100%;max-height:880px;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
-        '.first{text-align:right}.pdf-banner{background:#0f4c81;color:#fff;padding:18px 24px;border-radius:10px;margin-bottom:18px}' +
-        'table{width:100%;border-collapse:collapse;margin-top:12px}tr{page-break-inside:avoid}' +
-        'th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:right;font-size:13px}th{background:#f1f5f9;font-weight:700}' +
-        '</style>' + buildSheet(u => urlMap[u] || u);
-      document.body.appendChild(host);
-      if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
-      await Promise.all([...host.querySelectorAll('img')].map(im => im.complete ? Promise.resolve() : new Promise(res => { im.onload = im.onerror = res; })));
-      const blob = await window.html2pdf().set({
-        margin: [10, 10, 10, 10], filename: name,
-        image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, windowWidth: 718 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
-      }).from(host).outputPdf('blob');
-      host.remove(); host = null;
-      if (!blob || blob.size < 4000) throw new Error('empty');
-
-      let handle = null;
-      const pick = () => window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }] });
-      if (window.showSaveFilePicker) {
-        try { handle = await pick(); }
-        catch (e) {
-          if (e && e.name === 'AbortError') { btn.disabled = false; btn.textContent = label; return; }
-          // הדפדפן דורש לחיצה חדשה כדי לפתוח את חלון השמירה
-          await new Promise(res => {
-            btn.disabled = false; btn.textContent = '📁 לחץ לבחירת מיקום השמירה';
-            btn.onclick = async () => { try { handle = await pick(); } catch (e2) { handle = null; } res(); };
-          });
-          btn.onclick = doSave;
-          if (!handle) { btn.textContent = label; return; }
+      // המסמך נבנה גלוי על המסך (מעל האתר) – כך הצילום לא יוצא ריק
+      overlay = document.createElement('div');
+      overlay.setAttribute('dir', 'rtl');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#e2e8f0;overflow:auto';
+      overlay.innerHTML = '<div style="position:sticky;top:0;z-index:2;background:#0f4c81;color:#fff;padding:12px 18px;font:700 15px Arial,sans-serif">מכין את קובץ ה-PDF… אנא המתן</div>' +
+        '<div id="pdfhost" style="width:718px;margin:16px auto;background:#fff;color:#0f172a;font-family:Heebo,Arial,sans-serif"><style>' +
+        '#pdfhost .p{display:block;padding:0;margin:0 0 14px;background:#fff;text-align:center}#pdfhost .first{text-align:right}' +
+        '#pdfhost .p img{max-width:100%;max-height:960px;object-fit:contain;border-radius:8px;border:1px solid #cbd5e1}' +
+        '#pdfhost .pdf-banner{background:#0f4c81;color:#fff;padding:18px 24px;border-radius:10px;margin-bottom:18px;text-align:right}' +
+        '#pdfhost table{width:100%;border-collapse:collapse;margin-top:12px}#pdfhost th,#pdfhost td{border:1px solid #cbd5e1;padding:8px 10px;text-align:right;font-size:13px}#pdfhost th{background:#f1f5f9;font-weight:700}' +
+        '</style>' + buildSheet(u => urlMap[u] || u) + '</div>';
+      document.body.appendChild(overlay);
+      const host = overlay.querySelector('#pdfhost');
+      await Promise.all([...host.querySelectorAll('img')].map(im => (im.complete ? null : new Promise(res => { im.onload = im.onerror = res; }))));
+      await new Promise(res => setTimeout(res, 250));
+      const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+      const W = 190, H = 277;
+      let first = true;
+      for (const blk of host.querySelectorAll('.p')) {
+        const cv = await window.html2canvas(blk, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+        const ratio = W / cv.width, pageH = Math.floor(H / ratio);
+        for (let y = 0; y < cv.height; y += pageH) {
+          const h = Math.min(pageH, cv.height - y);
+          const part = document.createElement('canvas'); part.width = cv.width; part.height = h;
+          const ctx = part.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, part.width, part.height);
+          ctx.drawImage(cv, 0, y, cv.width, h, 0, 0, cv.width, h);
+          if (!first) pdf.addPage(); first = false;
+          pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', 10, 10, W, h * ratio);
         }
       }
+      const blob = pdf.output('blob');
       if (handle) { const w = await handle.createWritable(); await w.write(blob); await w.close(); }
       else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
       showToast('ה-PDF נשמר');
@@ -2067,60 +2204,59 @@ async function openDetail(id) {
       btn.disabled = false; btn.textContent = '✅ נשמר – שמירה בשם שוב';
       return;
     } catch (e) {
-      showToast('יצירת ה-PDF נכשלה – נפתח חלון ההדפסה, בחר "שמור כ-PDF"');
-      $('#sheet').innerHTML = buildSheet();
-      setTimeout(() => window.print(), 350);
-    } finally { if (host) host.remove(); }
+      showToast('יצירת ה-PDF נכשלה: ' + ((e && e.message) || e));
+    } finally { if (overlay) overlay.remove(); }
     btn.disabled = false; btn.textContent = label;
   };
-  $('#sv').onclick = doSave;
 
-  if ($('#del')) $('#del').onclick = async () => {
-    if (!confirm('למחוק את הדיווח ואת כל התמונות שלו לצמיתות?')) return;
-    const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
-    const gone = d.ok ? await d.json() : [];
-    if (!d.ok || !gone.length) { alert('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה.'); return; }
-    if (names.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: names.map(n => `${id}/${n}`) }) }).catch(() => {});
-    reports = reports.filter(x => x.report_id !== id);
-    closeModal();
-    renderShell();
-    showToast('הדיווח נמחק מהמערכת');
-  };
+  // מחיקה: לחיצה ראשונה הופכת את הכפתור ל"מחק? בטוח", לחיצה שנייה על אותו כפתור מוחקת
+  if ($('#del')) {
+    const delBtn = $('#del'), delLabel = delBtn.innerHTML;
+    let armed = false, armTimer = null;
+    const disarm = () => { armed = false; delBtn.innerHTML = delLabel; delBtn.classList.remove('armed'); };
+    delBtn.onclick = async () => {
+      if (!armed) {
+        armed = true; delBtn.classList.add('armed'); delBtn.innerHTML = '⚠️ מחק? בטוח';
+        armTimer = setTimeout(disarm, 4000);
+        return;
+      }
+      clearTimeout(armTimer);
+      delBtn.disabled = true; delBtn.textContent = 'מוחק…';
+      const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
+      const gone = d.ok ? await d.json() : [];
+      if (!d.ok || !gone.length) { delBtn.disabled = false; disarm(); showToast('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה'); return; }
+      if (names.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: names.map(n => `${id}/${n}`) }) }).catch(() => {});
+      reports = reports.filter(x => x.report_id !== id);
+      closeModal();
+      renderShell();
+      showToast('הדיווח נמחק מהמערכת');
+    };
+  }
 }
 
 $('#modal').onclick = e => { if (e.target.id === 'modal') e.target.classList.remove('open'); };
 
-/* נעילה אוטומטית: 30 דקות ללא פעילות (לחיצה / הקלדה / גלילה) או ברקע – נדרשת סיסמה מחדש */
+/* נעילה אוטומטית: אחרי 30 דקות ללא פעילות (או אתר סגור / ברקע כל הזמן הזה) – נדרשת סיסמה מחדש */
 const LOCK_MS = 30 * 60 * 1000;
-const LOCK_TXT = 'עברו 30 דקות ללא פעילות – יש להתחבר מחדש.';
 const seenAt = () => { try { return +localStorage.getItem('dash_seen') || 0; } catch (e) { return 0; } };
 const touchSeen = () => { try { if (session) localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} };
-let lastTouch = 0;
-function activity() { const n = Date.now(); if (session && n - lastTouch > 3000) { lastTouch = n; touchSeen(); } }
-['pointerdown', 'keydown', 'scroll', 'touchstart', 'mousemove', 'wheel'].forEach(ev => addEventListener(ev, activity, { passive: true, capture: true }));
 function lockIfStale() {
   if (session && Date.now() - seenAt() > LOCK_MS) {
-    serverSignOut();
     saveSession(null);
     try { localStorage.removeItem('dash_seen'); } catch (e) {}
     return true;
   }
   return false;
 }
-function enforceLock() {
-  if (!session) return;
-  if (lockIfStale()) {
-    reports = [];
-    ['#modal', '#lightbox'].forEach(q => { const el = $(q); if (el) el.classList.remove('open'); });
-    const sh = $('#sheet'); if (sh) sh.innerHTML = '';
-    renderLogin(LOCK_TXT, true);
-  }
-}
-setInterval(enforceLock, 20000);
+let lastAct = Date.now();
+const markActive = () => { const t = Date.now(); if (t - lastAct > 5000) { lastAct = t; touchSeen(); } };
+['pointerdown', 'keydown', 'touchstart', 'wheel', 'mousemove', 'scroll'].forEach(ev => addEventListener(ev, markActive, { passive: true, capture: true }));
+setInterval(() => { if (session && lockIfStale()) renderLogin('נותקת עקב חוסר פעילות של 30 דקות – יש להתחבר מחדש.'); }, 30000);
+addEventListener('pagehide', touchSeen);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') return;
-  enforceLock();
-  if (session && Date.now() - lastRefresh >= REFRESH_MS) softRefresh();
+  if (document.visibilityState === 'hidden') { touchSeen(); return; }
+  if (lockIfStale()) renderLogin('נותקת עקב חוסר פעילות של 30 דקות – יש להתחבר מחדש.', true);
+  else { touchSeen(); if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); }
 });
 
 /* רענון נתונים אוטומטי כל 15 דקות (בלי לסגור חלונות פתוחים ובלי לאבד מקום) */
@@ -2150,8 +2286,8 @@ function start() {
   if (hp.get('type') === 'recovery' && hp.get('access_token')) { renderReset(hp.get('access_token')); return; }
   if (hp.get('error_description')) { history.replaceState(null, '', location.pathname + location.search); renderLogin(hp.get('error_description')); return; }
   const locked = lockIfStale();
-  if (!locked) touchSeen();
-  session ? load() : renderLogin(locked ? LOCK_TXT : undefined, !!locked);
+  touchSeen();
+  session ? load() : renderLogin(locked ? 'נותקת עקב חוסר פעילות של 30 דקות – יש להתחבר מחדש.' : undefined, !!locked);
 }
 start();
 </script>
