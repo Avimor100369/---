@@ -1037,6 +1037,48 @@ header .btn { border-radius: 999px; padding: 8px 14px; }
 :root[data-theme=dark] .quick-dates .btn { color: #93c5fd; } :root[data-theme=dark] .quick-dates .btn.bad { color: #fda4af; }
 header h1 small { white-space: nowrap; }
 .filters input[type=date] { background: transparent; border: 0; font-weight: 600; color: var(--tx-sec); }
+/* ===== התאמה לאייפד (מגע, 700–1400px) – לא משפיע על מסך מחשב ===== */
+html { -webkit-text-size-adjust: 100%; }
+@media (pointer: coarse) and (min-width: 700px) and (max-width: 1400px) {
+  .btn, .filters select, .filters label, .search { min-height: 44px; }
+  header .btn, .themeseg .btn { min-height: 40px; }
+  .quick-dates .btn { min-height: 40px; }
+  .row-side .btn, .row-side button, .appr-btn { min-height: 42px; }
+  .row-side > div button:not(.appr-btn) { min-width: 42px; }
+  .sel-cb input { width: 22px; height: 22px; }
+  .side .tabs .btn, .side-ex .btn { min-height: 46px; font-size: 15px; }
+  .shell main { padding: 16px 18px 48px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .controls-card { position: static !important; }
+  .filters select { flex: 1 1 150px; }
+  .sheet { width: min(94vw, 880px); }
+  .list-head { display: none; }
+  .row small { display: block; font-size: 11.5px; }
+  .row { grid-template-columns: auto minmax(0, 1fr); }
+  .row-side { grid-column: 1 / -1; width: auto; padding: 10px 0 0; border-inline-start: 0; border-top: 1px dashed var(--line); flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .row-info { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (pointer: coarse) and (min-width: 961px) and (max-width: 1400px) {
+  .shell { grid-template-columns: 208px minmax(0, 1fr); }
+  header { padding: 0 18px !important; }
+  .greet .g1 { font-size: 20px; }
+  .user-badge { display: none; }
+}
+@media (pointer: coarse) and (min-width: 700px) and (max-width: 960px) {
+  header { flex-wrap: nowrap !important; padding: 0 16px !important; min-height: var(--hh) !important; }
+  .brand { flex: 1 1 0 !important; }
+  header h1 { font-size: 16px !important; }
+  header h1 small, .user-badge, header > span[style] { display: none !important; }
+  .greet { flex: 1.2 1 0 !important; order: 0 !important; align-items: center !important; text-align: center !important; }
+  .greet .g1 { font-size: 18px; }
+  .side { padding: 8px 14px; gap: 6px; }
+  .side .tabs .btn, .side-ex .btn { padding: 10px 14px; }
+}
+@media (max-width: 960px) { .side { position: static !important; height: auto !important; top: auto !important; } .shell { min-height: 0; } }
+/* תאריכים משמאל לימין */
+.ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+input[type=date] { direction: ltr; text-align: left; }
+input[type=date]::-webkit-datetime-edit { direction: ltr; unicode-bidi: isolate; }
 </style>
 </head>
 <body>
@@ -1578,7 +1620,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-י · כרטיסים וסינון</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יב · תאריכים</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1961,7 +2003,7 @@ function renderList(rows) {
       <label class="sel-cb" onclick="event.stopPropagation()" title="בחירה לפעולה מרובה"><input type="checkbox" data-sel="${id}"${sel.has(r.report_id) ? ' checked' : ''}></label>
       <div class="row-main">
         <div class="row-info">
-          <div><small>תאריך ביצוע</small><div class="val">${esc(r.date || '—')}</div></div>
+          <div><small>תאריך ביצוע</small><div class="val">${dtl(r.date || '—')}</div></div>
           <div><small>קבלן מבצע</small><div class="val">${esc(r.contractor_name || '—')}</div></div>
           <div><small>פרויקט / אתר</small><div class="val">${esc(r.project || '—')}</div></div>
           <div class="meta-end">
@@ -2195,7 +2237,7 @@ function killMaps() {
 const popupHtml = (r, g) => `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;min-width:200px">
   <b style="font-size:14px;color:#0f4c81">${esc(r.project || 'דיווח')}</b><br>
   <span style="font-size:12px;font-weight:700">${esc(r.company || '')}</span><br>
-  <span style="color:#64748b;font-size:12px">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span><br>
+  <span style="color:#64748b;font-size:12px">${esc(r.contractor_name || '')} · ${dtl(r.date || '')}</span><br>
   ${unitOf(r, null) ? `<span style="font-size:12px;font-weight:700">${esc(unitOf(r, null).text)}</span><br>` : ''}
   <span style="direction:ltr;unicode-bidi:embed;font-family:monospace;font-size:12px;color:#059669;font-weight:700">🧭 ${esc(ncText(g))}</span>
   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
@@ -2230,7 +2272,7 @@ function unitLabel(r) {
 }
 function placesHtml(city, proj, list) {
   const rowsH = list.sort((a, b) => String(b.r.date || '').localeCompare(String(a.r.date || ''))).map(({ r, g }) => `<tr>
-    <td><b>${esc(unitLabel(r))}</b></td><td>${esc(r.date || '')}</td><td>${esc(r.contractor_name || '')}</td>
+    <td><b>${esc(unitLabel(r))}</b></td><td dir="ltr" style="text-align:right">${esc(r.date || '')}</td><td>${esc(r.contractor_name || '')}</td>
     <td dir="ltr">${esc(ncText(g))}</td>
     <td><a href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" target="_blank">Google Maps</a></td>
     <td><a href="https://waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes" target="_blank">Waze</a></td></tr>`).join('');
@@ -2284,7 +2326,7 @@ function renderPlaces(rows) {
     return `<div class="loc">
       <div class="loc-id"><i class="dot" style="background:${STATUS_COLOR(r)}"></i><b>${esc(u ? u.text : 'ללא גוב/עמוד')}</b></div>
       <span class="nc-chip">🧭 נ.צ ${esc(ncText(g))}</span>
-      <span class="loc-sub">${esc(r.date || '')}${r.contractor_name ? ' · ' + esc(r.contractor_name) : ''}</span>
+      <span class="loc-sub">${dtl(r.date || '')}${r.contractor_name ? ' · ' + esc(r.contractor_name) : ''}</span>
       <div class="loc-act">
         <button type="button" onclick="copyNC('${esc(ncText(g))}')">📋 העתק נ.צ</button>
         <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}">🗺️ Google Maps</a>
@@ -2630,9 +2672,11 @@ async function listPhotos(id) {
   } catch (e) { return []; }
 }
 
+var dtl = v => `<span class="ltr">${esc(v)}</span>`;
 function fmt(k, v) {
   if (v && typeof v === 'object') return `<pre style="margin:0;white-space:pre-wrap;font-size:12px">${esc(JSON.stringify(v, null, 1))}</pre>`;
-  if ((k === 'created_at' || k === 'updated_at') && v) { const d = new Date(v); if (!isNaN(d)) return esc(d.toLocaleString('he-IL')); }
+  if ((k === 'created_at' || k === 'updated_at') && v) { const d = new Date(v); if (!isNaN(d)) return dtl(d.toLocaleString('he-IL')); }
+  if (k === 'date' && v) return dtl(v);
   return esc(v ?? '—');
 }
 
