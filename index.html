@@ -834,6 +834,29 @@ details.fold.sub > summary { padding: 11px 14px; font-size: 14.5px; }
 @media (min-width: 1500px) { main { max-width: 1500px; } }
 @media (min-width: 1900px) { body { zoom: 1.12; } main { max-width: 1760px; padding-inline: 36px; } }
 @media (min-width: 2500px) { body { zoom: 1.3; } main { max-width: 2100px; } }
+
+/* ===== רשימת דיווחים קומפקטית + לחצני פעולה בצד ===== */
+.row { grid-template-columns: 92px minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.3fr) auto auto; gap: 6px 14px; padding: 10px 14px; margin-bottom: 8px; border-radius: 14px; }
+.row .val { font-size: 14px; line-height: 1.3; }
+.row small { font-size: 10.5px; margin-bottom: 0; }
+.row .meta-end { gap: 4px; }
+.row .badge { padding: 2px 8px; font-size: 11.5px; }
+.row .id-row { grid-column: 1 / 6; padding-top: 6px; margin-top: 0; font-size: 12px; gap: 8px; }
+.wt { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.wt-chip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.wt-chip.more { background: var(--card-alt); color: var(--mut); border: 1px solid var(--line); }
+.row-side { grid-column: 6; grid-row: 1 / span 2; display: grid; grid-template-columns: repeat(4, 32px); gap: 5px; align-content: center; padding-inline-start: 12px; border-inline-start: 1px solid var(--line); }
+.rs-btn { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--card-alt); color: var(--tx); border-radius: 9px; cursor: pointer; font-size: 15px; line-height: 1; text-decoration: none; transition: background .15s, border-color .15s, transform .15s; }
+.rs-btn:hover { background: var(--pri-light); border-color: var(--pri); transform: translateY(-1px); }
+.rs-btn.ok { color: var(--ok); } .rs-btn.ok:hover { background: var(--ok-bg); border-color: var(--ok); }
+.rs-btn.bad { color: var(--bad); } .rs-btn.bad:hover { background: var(--bad-bg); border-color: var(--bad); }
+.rs-btn.off { opacity: .3; pointer-events: none; }
+@media (max-width: 760px) {
+  .row { grid-template-columns: 1fr 1fr; }
+  .row .id-row { grid-column: 1 / -1; }
+  .row-side { grid-column: 1 / -1; grid-row: auto; grid-template-columns: repeat(8, 1fr); border-inline-start: 0; padding-inline-start: 0; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .rs-btn { width: 100%; }
+}
 </style>
 </head>
 <body>
@@ -1275,7 +1298,7 @@ function renderShell(extra = '') {
           <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
         </h1>
       </div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ג · מיקומים</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ד · רשימה קומפקטית</span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)">🌓</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">🔄 רענון</button>
       <button class="btn bad" id="lo">יציאה</button>
@@ -1447,30 +1470,86 @@ async function renderUsers() {
   };
 }
 
+/* ===== סוג העבודה: שדה "סוג עבודה" מתוך הדיווח; אם אין – שמות סעיפי העבודה ===== */
+const WORK_KEY_RE = /^(סוג\s*(ה)?עבוד(ה|ות)|סוג\s*(ה)?(פעולה|טיפול|תקלה|דיווח)|work[\s_-]*type|job[\s_-]*type)$/i;
+const NON_WORK_RE = /^(תאריך( ביצוע)?|(שם )?(פרויקט|האתר|אתר)( \/ אתר)?|עיר|ישוב|יישוב|שם עיר|כתובת( מדויקת)?|הערות?|תיאור|פירוט|טקסט.*|שם קבלן|קבלן|חברה)$/;
+function workTypeOf(r) {
+  const out = [], push = v => { (Array.isArray(v) ? v : String(v ?? '').split(/\s*[,،;]\s*/)).forEach(x => { x = String(x ?? '').trim(); if (x && x !== '—' && !out.includes(x)) out.push(x); }); };
+  const direct = r.work_type || r.job_type; if (direct) push(direct);
+  const dt = parseJ(r.details);
+  if (dt && typeof dt === 'object' && !Array.isArray(dt)) for (const k of Object.keys(dt)) if (WORK_KEY_RE.test(k.trim()) && typeof dt[k] !== 'object') push(dt[k]);
+  const ls = linesOf(r);
+  for (const [k, v] of ls) if (WORK_KEY_RE.test(String(k).replace(/[:׳']/g, '').trim())) push(v);
+  if (out.length) return out;
+  // אין שדה "סוג עבודה" מפורש – מציגים את שמות סעיפי העבודה שדווחו
+  for (const [k] of ls) {
+    const name = String(k ?? '').replace(/[:׳']/g, '').trim();
+    if (!name || NON_WORK_RE.test(name) || UNIT_NUM_RE.test(name) || /תמונ|צילום|photo|image|img|pic/i.test(name)) continue;
+    if (!out.includes(name)) out.push(name);
+  }
+  return out;
+}
+function reportSummary(r) {
+  const gps = gpsOf(r), lines = linesOf(r), wt = workTypeOf(r);
+  return `דוח ביצוע עבודה #${r.report_id}\nפרויקט: ${r.project || '—'}\nחברה: ${r.company || '—'}\nקבלן: ${r.contractor_name || '—'}\nתאריך: ${r.date || '—'}` +
+    (wt.length ? `\nסוג עבודה: ${wt.join(', ')}` : '') +
+    `\nכתובת: ${[r.city, r.address].filter(Boolean).join(', ') || '—'}` +
+    (gps ? `\nנ.צ: ${ncText(gps)}\nhttps://www.google.com/maps?q=${gps.latitude},${gps.longitude}` : '') +
+    (lines.length ? `\n\nפירוט עבודות:\n` + lines.map(([k, v]) => `• ${k}: ${joinV(v)}`).join('\n') : '');
+}
+async function rowAct(id, act, ev) {
+  if (ev) ev.stopPropagation();
+  const r = reports.find(x => x.report_id === id); if (!r) return;
+  if (act === 'nc') { const g = gpsOf(r); if (g) copyNC(ncText(g)); return; }
+  if (act === 'save') { openDetail(id, true); return; }   // פותח את הדיווח ומפעיל "שמירה בשם (PDF)"
+  if (act === 'share') {
+    const t = reportSummary(r);
+    if (navigator.share) { try { await navigator.share({ title: `דוח עבודה - ${r.project || r.report_id}`, text: t }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    navigator.clipboard.writeText(t).then(() => showToast('פרטי הדוח הועתקו – אפשר להדביק בוואטסאפ/מייל')).catch(() => { prompt('העתק את פרטי הדוח:', t); });
+  }
+}
+
 function renderList(rows) {
   $('#list').innerHTML = rows.length ? rows.map(r => {
     const phCount = photosOf(r).length;
     const linesCount = linesOf(r).length;
     const locStr = [r.city, r.address].filter(Boolean).join(', ');
-    return `<div class="row" data-id="${esc(r.report_id)}">
+    const gps = gpsOf(r), id = esc(r.report_id), wt = workTypeOf(r);
+    const wtHtml = wt.length
+      ? wt.slice(0, 3).map(w => `<span class="wt-chip" title="${esc(w)}">${esc(w)}</span>`).join('') + (wt.length > 3 ? `<span class="wt-chip more" title="${esc(wt.slice(3).join(', '))}">+${wt.length - 3}</span>` : '')
+      : '<span class="muted">—</span>';
+    const apprSide = canApprove() ? `
+        <button type="button" class="rs-btn ok" title="אשר דיווח" onclick="apprSet('${id}','approved',event)">✓</button>
+        <button type="button" class="rs-btn bad" title="לא מאושר (חובה סיבה)" onclick="apprSet('${id}','rejected',event)">✕</button>
+        <button type="button" class="rs-btn" title="הוסף הערה" onclick="apprSet('${id}','note',event)">💬</button>
+        <button type="button" class="rs-btn" title="איפוס סטטוס אישור" onclick="apprSet('${id}','clear',event)">↺</button>` : '';
+    return `<div class="row" data-id="${id}">
       <div><small>תאריך ביצוע</small><div class="val">${esc(r.date || '—')}</div></div>
       <div><small>קבלן מבצע</small><div class="val">${esc(r.contractor_name || '—')}</div></div>
       <div><small>פרויקט / אתר</small><div class="val">${esc(r.project || '—')}</div></div>
+      <div><small>סוג עבודה</small><div class="wt">${wtHtml}</div></div>
       <div class="meta-end">
         ${r.company ? `<span class="badge co">🏢 ${esc(r.company)}</span>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${linesCount ? `<span class="badge lines-cnt">🛠️ ${linesCount} סעיפים</span>` : ''}
+          ${linesCount ? `<span class="badge lines-cnt">🛠️ ${linesCount}</span>` : ''}
           ${phCount ? `<span class="badge ph-cnt">📷 ${phCount}</span>` : ''}
-          ${gpsOf(r) ? '<span class="badge gps">📍 GPS</span>' : ''}
+          ${gps ? '<span class="badge gps">📍 GPS</span>' : ''}
         </div>
+      </div>
+      <div class="row-side" onclick="event.stopPropagation()">${apprSide}
+        <button type="button" class="rs-btn" title="${isSaved(r) ? 'נשמר – שמירה בשם PDF שוב' : 'שמירה בשם (PDF)'}" onclick="rowAct('${id}','save',event)">${isSaved(r) ? '✅' : '💾'}</button>
+        <button type="button" class="rs-btn" title="שיתוף / העתקת פרטי הדיווח (וואטסאפ, מייל)" onclick="rowAct('${id}','share',event)">📤</button>
+        <button type="button" class="rs-btn${gps ? '' : ' off'}" title="העתק נ.צ" onclick="rowAct('${id}','nc',event)">📋</button>
+        ${gps ? `<a class="rs-btn" title="ניווט ב-Waze" target="_blank" rel="noopener" href="https://waze.com/ul?ll=${gps.latitude},${gps.longitude}&navigate=yes">🚗</a>` : '<span class="rs-btn off">🚗</span>'}
       </div>
       <div class="id-row">
         ${isSaved(r) ? '<span class="v-done" title="הדוח נשמר בשם">✓</span>' : ''}
-        <span style="direction:ltr;font-family:monospace;font-weight:600">#${esc(r.report_id)}</span>
+        <span style="direction:ltr;font-family:monospace;font-weight:600">#${id}</span>
+        ${apprBadge(r)}
         ${locStr ? `<span>• 📍 ${esc(locStr)}</span>` : ''}
-        ${gpsOf(r) ? `<span class="nc-chip" title="נקודת ציון">🧭 נ.צ ${esc(ncText(gpsOf(r)))}</span>` : ''}
+        ${gps ? `<span class="nc-chip" title="נקודת ציון">🧭 נ.צ ${esc(ncText(gps))}</span>` : ''}
+        ${r.approval_note ? `<span class="appr-note">💬 ${esc(r.approval_note)}</span>` : ''}
       </div>
-      ${apprRow(r)}
     </div>`;
   }).join('') : '<div class="empty">לא נמצאו דיווחים התואמים לחיפוש או לסינון הנוכחי</div>';
 
@@ -2062,7 +2141,7 @@ function fmt(k, v) {
 }
 
 /* Structured Executive Report Modal */
-async function openDetail(id) {
+async function openDetail(id, autoSave) {
   const r = reports.find(x => x.report_id === id);
   if (!r) return;
 
@@ -2291,6 +2370,8 @@ async function openDetail(id) {
     } finally { if (overlay) overlay.remove(); }
     btn.disabled = false; btn.textContent = label;
   };
+
+  if (autoSave) $('#sv').click();   // נפתח מכפתור 💾 ברשימה
 
   // מחיקה: לחיצה ראשונה הופכת את הכפתור ל"מחק? בטוח", לחיצה שנייה על אותו כפתור מוחקת
   if ($('#del')) {
