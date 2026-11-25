@@ -980,6 +980,30 @@ header .btn.bad { background: rgba(251,113,133,.18); color: #fecdd3; border-colo
 .row-info > div:nth-child(3) .val { font-size: 16.5px; font-weight: 800; color: var(--pri); }
 .row-info > div:nth-child(2) .val { font-weight: 600; }
 .row .id-row { border-top: 1px solid var(--line); }
+/* ===== כותרת עליונה מעוצבת ===== */
+:root { --hh: 76px; }
+header { min-height: var(--hh) !important; padding: 0 28px !important; gap: 14px; background: linear-gradient(115deg, #082f52 0%, #0f4c81 60%, #1a6aa8 100%) !important; position: sticky; overflow: hidden; border-bottom: 0 !important; box-shadow: 0 4px 18px -8px rgba(8,47,82,.6) !important; }
+:root[data-theme=dark] header { background: linear-gradient(115deg, #070f1c 0%, #0c1a2e 60%, #12304f 100%) !important; }
+header::before { content: ""; position: absolute; inset-inline-start: -60px; top: -90px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12), transparent 65%); pointer-events: none; }
+header > * { position: relative; }
+.brand { gap: 14px; }
+.brand-icon { width: 46px !important; height: 46px !important; border-radius: 13px !important; background: rgba(255,255,255,.16) !important; border: 1px solid rgba(255,255,255,.22); }
+header h1 { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 18px !important; font-weight: 800; color: #fff; line-height: 1.15; }
+header h1 small { display: block !important; font-size: 12px; font-weight: 400; color: rgba(255,255,255,.72); }
+header h1 .live-pill { position: absolute; display: none; }
+.greet { flex: 1.3; text-align: center; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: normal; }
+.greet .g1 { font-size: 22px; font-weight: 700; letter-spacing: -.2px; line-height: 1.2; }
+.greet .g2 { font-size: 12.5px; color: rgba(255,255,255,.72); font-weight: 400; }
+header .btn { border-radius: 999px; padding: 8px 14px; }
+.shell { min-height: calc(100vh - var(--hh)); }
+.side { top: var(--hh) !important; height: calc(100vh - var(--hh)) !important; }
+.controls-card { top: calc(var(--hh) + 6px) !important; }
+@media (max-width: 960px) {
+  header { flex-wrap: wrap; padding: 10px 14px !important; min-height: 0 !important; }
+  .brand { flex: 1 1 100%; } .greet { flex: 1 1 100%; align-items: flex-start; text-align: start; order: 3; }
+  .greet .g1 { font-size: 18px; }
+}
+.stat small b.trend { font-size: inherit; line-height: inherit; display: inline; }
 </style>
 </head>
 <body>
@@ -1171,6 +1195,7 @@ ${esc(SQL_HINT)}</div>`);
   reports = [...seen.values()];
   lastRefresh = Date.now();
   renderShell();
+  setTimeout(askName, 600);
   setTimeout(preloadPdfLibs, 1500);   // טעינה מראש – שמירת PDF נפתחת מהר
 }
 
@@ -1440,11 +1465,25 @@ function ilHour() {
   try { return +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date()) % 24; }
   catch (e) { return new Date().getHours(); }
 }
-function greetText() {
-  const h = ilHour();
-  const g = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
-  const n = userName || ROLE_LABELS[userRole] || '';   // שם בעברית: שם מלא מהפרופיל, ואם אין – התפקיד
-  return n ? `${g} ${n}` : g;
+function greetWord() { const h = ilHour(); return h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב'; }
+function greetText() { return userName ? `${greetWord()}, ${userName}` : greetWord(); }
+function greetHtml() {
+  let d = '';
+  try { d = new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()); } catch (e) {}
+  return `<div class="g1">${esc(greetText())}</div><div class="g2">${esc(d)}</div>`;
+}
+function paintGreet() { const g = document.getElementById('greet'); if (g) g.innerHTML = greetHtml(); }
+/* אם עדיין אין שם בעברית בפרופיל – שואלים פעם אחת ושומרים */
+async function askName() {
+  if (userName) return;
+  let st = ''; try { st = localStorage.getItem('dash_name_' + userId) || ''; } catch (e) {}
+  if (st) { userName = st; paintGreet(); return; }
+  try { if (sessionStorage.getItem('dash_name_asked')) return; sessionStorage.setItem('dash_name_asked', '1'); } catch (e) {}
+  const n = await dlg({ title: 'איך לקרוא לך?', text: 'השם יוצג בברכה בראש האתר (למשל: ערב טוב, דנה).', input: true, placeholder: 'השם שלך בעברית', required: true, requiredMsg: 'יש להזין שם', ok: 'שמור' });
+  if (!n) return;
+  userName = n; paintGreet();
+  try { localStorage.setItem('dash_name_' + userId, n); } catch (e) {}
+  try { await api(`${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ full_name: n }) }); } catch (e) {}
 }
 
 /* ===== חלון דו-שיח מעוצב (במקום alert / prompt / confirm) ===== */
@@ -1501,11 +1540,11 @@ function renderShell(extra = '') {
         <h1>
           מערכת ניהול ובקרת שטח
           <span class="live-pill"><span class="live-dot"></span>מבצעי</span>
-          <small>פורטל דיווחים הנדסי, תיעוד מצולם והתחשבנות קבלנים</small>
+          <small>דיווחי שטח · תיעוד מצולם · התחשבנות קבלנים</small>
         </h1>
       </div>
-      <div class="greet" id="greet">${esc(greetText())}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ו · סרגל צד</span>` : ''}
+      <div class="greet" id="greet">${greetHtml()}</div>
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-ז · כותרת חדשה</span>` : ''}
       <button class="btn" id="th" title="החלפת מצב תצוגה (בהיר / כהה)" aria-label="מצב תצוגה">${ic("moon")}</button>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1680,7 +1719,7 @@ async function renderUsers() {
     if (fnEl) body.full_name = fnEl.value.trim() || null;
     const d = await api(`${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) });
     const j = d.ok ? await d.json() : [];
-    if (j.length && id === userId && fnEl) { userName = fnEl.value.trim(); const g = document.getElementById('greet'); if (g) g.textContent = greetText(); }
+    if (j.length && id === userId && fnEl) { userName = fnEl.value.trim(); paintGreet(); }
     showToast(j.length ? 'ההרשאה נשמרה' : 'השמירה נכשלה – בדוק הרשאות');
   });
 
@@ -2794,7 +2833,7 @@ async function softRefresh() {
     refresh();
   } catch (e) {}
 }
-setInterval(() => { if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); const g = document.getElementById('greet'); if (g) g.textContent = greetText(); }, 60000);
+setInterval(() => { if (Date.now() - lastRefresh >= REFRESH_MS) softRefresh(); paintGreet(); }, 60000);
 
 function start() {
   const hp = new URLSearchParams(location.hash.replace(/^#/, ''));
