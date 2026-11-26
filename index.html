@@ -1281,6 +1281,7 @@ ${esc(SQL_HINT)}</div>`);
   reports = [...seen.values()];
   lastRefresh = Date.now();
   renderShell();
+  if (canApprove()) startLocSync();
   setTimeout(askName, 600);
   setTimeout(preloadPdfLibs, 1500);   // טעינה מראש – שמירת PDF נפתחת מהר
 }
@@ -1347,6 +1348,7 @@ const UNIT_NUM_RE = new RegExp("((מס['׳]?|מספר|num|no\\.?|#)\\s*" + UNIT_
 const UNIT_EXACT_RE = new RegExp('^\\s*' + UNIT_WORD + '\\s*$', 'i');
 const unitKeyOk = k => UNIT_NUM_RE.test(k) || UNIT_EXACT_RE.test(k);
 function unitOf(r, p) {
+  if (r && r._saved) return r.unit_text ? { text: r.unit_text } : null;   // מיקום שמור (הדיווח נמחק)
   const found = [];
   const add = (key, val) => {
     if (val == null || typeof val === 'object') return;
@@ -1372,9 +1374,10 @@ function linesOf(r) { const dt = parseJ(r.details); return dt && Array.isArray(d
 function photosOf(r) { const p = parseJ(r.photos); return Array.isArray(p) ? p.filter(x => x && x.url) : []; }
 const today = () => new Date().toISOString().slice(0, 10);
 
-function filtered() {
+function filtered() { return reports.filter(matchF); }
+function matchF(r) {
   const q = query.trim().toLowerCase();
-  return reports.filter(r => {
+  {
     const linesTxt = linesOf(r).map(x => x.join(' ')).join(' ');
     return (!q || [r.contractor_name, r.project, r.date, r.report_id, r.city, r.address, r.company, linesTxt].some(v => String(v || '').toLowerCase().includes(q))) &&
       (!fContractor || r.contractor_name === fContractor) &&
@@ -1384,7 +1387,7 @@ function filtered() {
       (!fStatus || (fStatus === 'pending' ? !r.approval_status : r.approval_status === fStatus)) &&
       (!fFrom || (r.date && r.date >= fFrom)) &&
       (!fTo || (r.date && r.date <= fTo));
-  });
+  }
 }
 
 /* Lightbox & Photo Sharing */
@@ -2582,7 +2585,7 @@ const popupHtml = (r, g) => `<div dir="rtl" style="font-family:Heebo,Arial,sans-
   ${unitOf(r, null) ? `<span style="font-size:12px;font-weight:700">${esc(unitOf(r, null).text)}</span><br>` : ''}
   <span style="direction:ltr;unicode-bidi:embed;font-family:monospace;font-size:12px;color:#059669;font-weight:700">🧭 ${esc(ncText(g))}</span>
   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-    <button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:6px 11px;border-radius:7px;cursor:pointer;font-weight:700">פתיחת דיווח</button>
+    ${r._saved ? '<span style="padding:6px 8px;color:#64748b;font-size:12px">🗄️ מיקום שמור – הדיווח נמחק</span>' : `<button data-open="${esc(r.report_id)}" style="background:#0f4c81;color:#fff;border:none;padding:6px 11px;border-radius:7px;cursor:pointer;font-weight:700">פתיחת דיווח</button>`}
     <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}" style="padding:6px 10px;background:#f1f5f9;border-radius:7px;text-decoration:none;color:#0f172a;font-weight:700">Google ↗</a>
     <a target="_blank" rel="noopener" href="https://waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes" style="padding:6px 10px;background:#f1f5f9;border-radius:7px;text-decoration:none;color:#0f172a;font-weight:700">Waze ↗</a>
   </div></div>`;
@@ -2652,7 +2655,60 @@ async function savePlacesFolder(rows) {
 }
 
 /* ===== לשונית "מיקומים": רק מיקומים (נ.צ, Waze, Google Maps) – לפי ערים, ובתוך כל עיר לפי פרויקט ===== */
+
+/* ===== מיקומים שמורים: נשארים במסך "מיקומים" ובמפה גם אחרי שמוחקים את הדיווח ===== */
+let savedLocs = [], locTableOk = false;
+const locRowOf = r => {
+  const g = gpsOf(r); if (!g) return null;
+  const u = unitOf(r, null);
+  return { report_id: r.report_id, city: fieldOf(r, 'city') || null, project: fieldOf(r, 'project') || null, unit_text: u ? u.text : null,
+    latitude: +g.latitude, longitude: +g.longitude, report_date: r.date || null, contractor_name: r.contractor_name || null,
+    company: r.company || null, approval_status: r.approval_status || null };
+};
+async function loadSavedLocs() {
+  try {
+    const r = await api(`${SB}/rest/v1/saved_locations?select=*&limit=10000`);
+    if (!r.ok) { locTableOk = false; return; }
+    savedLocs = await r.json(); locTableOk = true;
+  } catch (e) { locTableOk = false; }
+}
+async function syncLocations(only) {
+  if (!locTableOk) return { ok: true, skipped: true };
+  try {
+    const have = new Map(savedLocs.map(x => [x.report_id, x]));
+    const todo = (only || reports).map(locRowOf).filter(Boolean).filter(x => {
+      const h = have.get(x.report_id);
+      return !h || (h.approval_status || null) !== x.approval_status || (h.unit_text || null) !== x.unit_text || (h.city || null) !== x.city || (h.project || null) !== x.project;
+    });
+    for (let i = 0; i < todo.length; i += 200) {
+      const chunk = todo.slice(i, i + 200);
+      const r = await api(`${SB}/rest/v1/saved_locations?on_conflict=report_id`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(chunk) });
+      if (!r.ok) return { ok: false };
+      chunk.forEach(x => { const k = savedLocs.findIndex(y => y.report_id === x.report_id); if (k >= 0) savedLocs[k] = { ...savedLocs[k], ...x }; else savedLocs.push(x); });
+    }
+    return { ok: true, n: todo.length };
+  } catch (e) { return { ok: false }; }
+}
+// שורות "דמה" למיקומים ששמורים בטבלה והדיווח שלהם כבר נמחק – כדי שייראו במפה ובמסך המיקומים
+function savedRows() {
+  const have = new Set(reports.map(r => r.report_id));
+  return savedLocs.filter(x => !have.has(x.report_id)).map(x => ({
+    report_id: x.report_id, city: x.city, project: x.project, company: x.company, contractor_name: x.contractor_name, date: x.report_date,
+    approval_status: x.approval_status, unit_text: x.unit_text, details: JSON.stringify({ gps: { latitude: x.latitude, longitude: x.longitude }, lines: [] }), photos: '[]', _saved: true
+  }));
+}
+const placeRows = rows => [...rows, ...savedRows().filter(matchF)];
+async function delSavedLoc(id) {
+  if (!(await dlg({ title: 'מחיקת מיקום', text: 'המיקום יימחק לצמיתות מהמערכת (הדיווח כבר נמחק). להמשיך?', ok: 'מחק מיקום', danger: true }))) return;
+  const d = await api(`${SB}/rest/v1/saved_locations?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!d.ok) { showToast('המחיקה נכשלה'); return; }
+  savedLocs = savedLocs.filter(x => x.report_id !== id);
+  showToast('המיקום נמחק'); refresh();
+}
+function startLocSync() { (async () => { await loadSavedLocs(); await syncLocations(); if (view === 'places' || view === 'map') refresh(); })(); }
+
 function renderPlaces(rows) {
+  rows = placeRows(rows);
   const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
   const byCity = new Map();
   pts.forEach(x => {
@@ -2667,11 +2723,12 @@ function renderPlaces(rows) {
     return `<div class="loc">
       <div class="loc-id"><i class="dot" style="background:${STATUS_COLOR(r)}"></i><b>${esc(u ? u.text : 'ללא גוב/עמוד')}</b></div>
       <span class="nc-chip">🧭 נ.צ ${esc(ncText(g))}</span>
-      <span class="loc-sub">${dtl(r.date || '')}${r.contractor_name ? ' · ' + esc(r.contractor_name) : ''}</span>
+      <span class="loc-sub">${dtl(r.date || '')}${r.contractor_name ? ' · ' + esc(r.contractor_name) : ''}${r._saved ? ' · 🗄️ נשמר (הדיווח נמחק)' : ''}</span>
       <div class="loc-act">
         <button type="button" onclick="copyNC('${esc(ncText(g))}')">📋 העתק נ.צ</button>
         <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${g.latitude},${g.longitude}">🗺️ Google Maps</a>
         <a target="_blank" rel="noopener" href="https://waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes">🚗 Waze</a>
+        ${r._saved && canApprove() ? `<button type="button" onclick="delSavedLoc('${esc(r.report_id)}')">🗑️ מחק מיקום</button>` : ''}
       </div></div>`;
   };
   $('#list').innerHTML = `
@@ -2695,6 +2752,7 @@ function renderPlaces(rows) {
 }
 
 async function renderMap(rows) {
+  rows = placeRows(rows);
   const tok = ++mapTok;
   const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
   killMaps();
@@ -3352,6 +3410,10 @@ async function openDetail(id) {
       }
       clearTimeout(armTimer);
       delBtn.disabled = true; delBtn.textContent = 'מוחק…';
+      // קודם מוודאים שהמיקום שמור בנפרד, כדי שיישאר במפה גם אחרי מחיקת הדיווח
+      const rr = reports.find(x => x.report_id === id);
+      const sr = rr ? await syncLocations([rr]) : { ok: true };
+      if (sr && sr.ok === false && !confirm('לא ניתן היה לשמור את המיקום של הדיווח בטבלת המיקומים.\nאם תמחק, המיקום ייעלם. למחוק בכל זאת?')) { delBtn.disabled = false; disarm(); return; }
       const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
       const gone = d.ok ? await d.json() : [];
       if (!d.ok || !gone.length) { delBtn.disabled = false; disarm(); showToast('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה'); return; }
@@ -3359,7 +3421,7 @@ async function openDetail(id) {
       reports = reports.filter(x => x.report_id !== id);
       closeModal();
       renderShell();
-      showToast('הדיווח נמחק מהמערכת');
+      showToast('הדיווח נמחק מהמערכת' + (locTableOk && rr && gpsOf(rr) ? ' · המיקום נשמר' : ''));
     };
   }
 }
