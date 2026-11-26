@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ג · טיפול</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ד · חודשי</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1641,6 +1641,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
+          <button class="btn" id="tm">📊 חודשי</button>
           <button class="btn" id="tt">📋 טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
           ${userRole === 'admin' ? `<button class="btn" id="ts">💾 נפח</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
@@ -1710,6 +1711,7 @@ function renderShell(extra = '') {
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
   if ($('#ts')) $('#ts').onclick = () => { view = 'storage'; refresh(); };
   if ($('#tt')) $('#tt').onclick = () => { view = 'todo'; refresh(); };
+  if ($('#tm')) $('#tm').onclick = () => { view = 'monthly'; refresh(); };
   $('#e1').onclick = () => exportExcelMonthly(false);
   $('#e2').onclick = exportExcelStyled;
   if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
@@ -1767,6 +1769,7 @@ function refresh() {
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
   if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
+  if ($('#tm')) $('#tm').classList.toggle('pri', view === 'monthly');
   if ($('#tt')) { $('#tt').classList.toggle('pri', view === 'todo'); const _n = reports.filter(r => !r.approval_status).length, _e = $('#ttn'); if (_e) { _e.textContent = _n; _e.style.display = _n ? '' : 'none'; } }
 
   if (view !== 'map') {
@@ -1781,6 +1784,7 @@ function refresh() {
   else if (view === 'msgs' && userRole === 'admin') renderMsgs();
   else if (view === 'storage' && userRole === 'admin') renderStorage();
   else if (view === 'todo') renderTodo();
+  else if (view === 'monthly') renderMonthly();
   else if (view === 'gallery') renderGalleryHub(rows);
   else if (view === 'analytics') renderAnalytics(rows);
   else renderList(rows);
@@ -2781,6 +2785,156 @@ function buildWorkbook(rows, title, subtitle) {
   const tot = conRows.reduce((a, r) => [a[0], a[1] + r[1], a[2] + r[2], a[3] + r[3], a[4] + r[4], ''], ['סה״כ', 0, 0, 0, 0, '']);
   XLSX.utils.book_append_sheet(wb, simpleSheet('סיכום לפי קבלן', ['קבלן', 'דיווחים', 'אושרו', 'ממתינים', 'לא אושרו', 'ערים'], conRows, [28, 14, 14, 14, 14, 12], [1, 2, 3, 4, 5], tot), 'סיכום קבלנים');
   return wb;
+}
+
+/* ===================== סיכום חודשי + אקסל להתחשבנות ===================== */
+var mSel = { month: '', scope: 'all' };
+var M_ID_RE = /מספר|מס['׳]|#|טלפון|קוד|מזהה|צב[״"]?ד/;
+var M_NOTE_RE = /טקסט|הערות|הערה|תיאור|פירוט|נ\.?צ|קואורד|gps/i;
+var M_PHOTO_RE = /תמונ|צילום|photo|image|img|pic/i;
+var M_BASE_RE = /^(תאריך|תאריך ביצוע|שם פרויקט|פרויקט|פרויקט \/ אתר|שם האתר|אתר|עיר|ישוב|יישוב|שם עיר|כתובת|כתובת מדויקת)$/;
+function mLines(r) {
+  const out = [];
+  linesOf(r).forEach(l => {
+    const name = String(l[0] == null ? '' : l[0]).replace(/\s*[:׳']*\s*$/, '').trim(), v = l[1];
+    if (!name || UNIT_NUM_RE.test(name) || M_PHOTO_RE.test(name) || M_BASE_RE.test(name) || M_NOTE_RE.test(name)) return;
+    out.push([name, v]);
+  });
+  return out;
+}
+function mItems(r) {
+  const out = [];
+  mLines(r).forEach(([name, v]) => {
+    (Array.isArray(v) ? v : [v]).forEach(x => {
+      const s = String(x == null ? '' : x).trim(); if (!s) return;
+      const n = Number(s);
+      if (!isNaN(n)) { if (!M_ID_RE.test(name) && !Array.isArray(v)) out.push({ key: name, kind: 'sum', n }); }
+      else if (s.length <= 40) out.push({ key: name + ': ' + s, kind: 'cnt', n: 1 });
+    });
+  });
+  return out;
+}
+var mDay = r => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.date || '')) || /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.created_at || '')); return m ? +m[3] : 0; };
+function mMonths() { const s = new Set(); reports.forEach(r => { const k = monthKeyOf(r); if (k) s.add(k); }); return [...s].sort().reverse(); }
+function mAgg(month, scope) {
+  const rows = reports.filter(r => monthKeyOf(r) === month && (scope !== 'approved' || r.approval_status === 'approved'));
+  const cons = new Map(), items = new Map();
+  rows.forEach(r => {
+    const c = r.contractor_name || 'ללא קבלן';
+    const o = cons.get(c) || { n: 0, a: 0, p: 0, x: 0, days: new Set(), cities: new Set(), projects: new Set(), rows: [], perDay: new Map() };
+    o.n++; if (r.approval_status === 'approved') o.a++; else if (r.approval_status === 'rejected') o.x++; else o.p++;
+    const d = mDay(r); if (d) { o.days.add(d); o.perDay.set(d, (o.perDay.get(d) || 0) + 1); }
+    if (r.city) o.cities.add(String(r.city).trim()); if (r.project) o.projects.add(String(r.project).trim());
+    o.rows.push(r); cons.set(c, o);
+    mItems(r).forEach(it => { const t = items.get(it.key) || { kind: it.kind, per: new Map() }; t.per.set(c, (t.per.get(c) || 0) + it.n); items.set(it.key, t); });
+  });
+  const names = [...cons.keys()].sort((a, b) => cons.get(b).n - cons.get(a).n || a.localeCompare(b, 'he'));
+  const itemList = [...items].sort((a, b) => (a[1].kind === b[1].kind ? 0 : a[1].kind === 'sum' ? -1 : 1) || a[0].localeCompare(b[0], 'he'));
+  return { rows, cons, names, items: itemList };
+}
+function mSheet(title, sub, head, data, widths, o) {
+  o = o || {};
+  const N = head.length, numCols = o.numCols || [], pctCols = o.pctCols || [], aoa = [[title, ...Array(N - 1).fill('')], [sub || '', ...Array(N - 1).fill('')], Array(N).fill(''), head];
+  const meta = {};
+  const put = (row, R) => aoa.push(row.map((c, C) => { if (c && typeof c === 'object') { meta[R + ',' + C] = c; return c.v; } return c; }));
+  data.forEach((row, i) => put(row, 4 + i));
+  if (o.total) put(o.total, 4 + data.length);
+  const lastR = aoa.length - 1, tR = o.total ? lastR : -1;
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: N - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: N - 1 } }];
+  ws['!cols'] = widths.map(w => ({ wch: w }));
+  ws['!views'] = [{ rightToLeft: true, RTL: true, showGridLines: false }];
+  ws['!rows'] = [{ hpt: 36 }, { hpt: 22 }, { hpt: 6 }, { hpt: 34 }];
+  for (let R = 0; R <= lastR; R++) for (let C = 0; C < N; C++) {
+    const addr = XLSX.utils.encode_cell({ r: R, c: C }), cell = ws[addr] || (ws[addr] = { t: 's', v: '' }), mt = meta[R + ',' + C];
+    if (mt && mt.f) cell.f = mt.f;
+    if (mt && mt.l) { cell.l = { Target: mt.l, Tooltip: 'פתח במפה' }; }
+    if (R === 0) cell.s = { font: { name: 'Arial', sz: 18, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0A2A4A' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 } };
+    else if (R === 1) cell.s = { font: { name: 'Arial', sz: 11, bold: true, color: { rgb: '0A365C' } }, fill: { fgColor: { rgb: 'E0F2FE' } }, alignment: { horizontal: 'right', vertical: 'center', readingOrder: 2 }, border: { bottom: XB('7DD3FC') } };
+    else if (R === 2) continue;
+    else if (R === 3) cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F4C81' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: { ...BORD, bottom: { style: 'medium', color: { rgb: '0A365C' } } } };
+    else if (R === tR) { cell.s = { font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: '0A365C' } }, fill: { fgColor: { rgb: 'E2E8F0' } }, alignment: { horizontal: C === 0 ? 'right' : 'center', vertical: 'center' }, border: { ...BORD, top: { style: 'medium', color: { rgb: '0A365C' } } } }; if (pctCols.includes(C)) cell.z = '0%'; }
+    else {
+      let fill = (R % 2) ? 'F1F5F9' : 'FFFFFF', fc = '0F172A', bold = numCols.includes(C), hz = numCols.includes(C) ? 'center' : 'right', ul = false;
+      if (pctCols.includes(C)) cell.z = '0%'; else if (numCols.includes(C) && typeof cell.v === 'number') cell.z = '#,##0.##';
+      if (mt && mt.l) { fc = '0284C7'; ul = true; hz = 'center'; }
+      const cf = o.cellFill && o.cellFill(R - 4, C, cell.v, data[R - 4]); if (cf) { fill = cf[0]; if (cf[1]) fc = cf[1]; bold = true; hz = 'center'; }
+      cell.s = { font: { name: 'Arial', sz: 10, bold, underline: ul, color: { rgb: fc } }, fill: { fgColor: { rgb: fill } }, alignment: { horizontal: hz, vertical: 'center', wrapText: true }, border: BORD };
+    }
+  }
+  if (data.length) ws['!autofilter'] = { ref: `${XLSX.utils.encode_cell({ r: 3, c: 0 })}:${XLSX.utils.encode_cell({ r: 3 + data.length, c: N - 1 })}` };
+  return ws;
+}
+function buildMonthlyWorkbook(month, scope) {
+  const A = mAgg(month, scope), ML = monthLabelOf(month), col = XLSX.utils.encode_col;
+  const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+  const scopeTxt = scope === 'approved' ? 'דיווחים שאושרו בלבד' : 'כל הדיווחים', stamp = `הופק ב-${new Date().toLocaleDateString('he-IL')}`;
+  const nA = A.rows.filter(r => r.approval_status === 'approved').length, nX = A.rows.filter(r => r.approval_status === 'rejected').length;
+  const cities = new Set(A.rows.map(r => String(r.city || '').trim()).filter(Boolean)).size, projs = new Set(A.rows.map(r => String(r.project || '').trim()).filter(Boolean)).size;
+  const days = new Set(A.rows.map(mDay).filter(Boolean)).size;
+  // 1. סיכום חודשי
+  const s1 = A.names.map((n, i) => { const o = A.cons.get(n), R = 5 + i; return [n, o.n, o.a, o.p, o.x, { v: o.n ? o.a / o.n : 0, f: `IF(B${R}=0,0,C${R}/B${R})` }, o.days.size, o.cities.size, o.projects.size]; });
+  const L1 = 4 + s1.length;
+  const t1 = ['סה״כ', ...[1, 2, 3, 4].map(c => ({ v: s1.reduce((a, r) => a + r[c], 0), f: s1.length ? `SUM(${col(c)}5:${col(c)}${L1})` : undefined })), { v: A.rows.length ? nA / A.rows.length : 0, f: `IF(B${L1 + 1}=0,0,C${L1 + 1}/B${L1 + 1})` }, days, cities, projs];
+  XLSX.utils.book_append_sheet(wb, mSheet(`סיכום חודשי – ${ML}`, `${A.rows.length} דיווחים · ✓ ${nA} אושרו · ⏳ ${A.rows.length - nA - nX} ממתינים · ✕ ${nX} לא אושרו · ${A.names.length} קבלנים · ${scopeTxt} · ${stamp}`,
+    ['קבלן', 'דיווחים', 'אושרו', 'ממתינים', 'לא אושרו', '% אישור', 'ימי פעילות', 'ערים', 'פרויקטים'], s1, [28, 12, 12, 12, 12, 12, 13, 10, 12], { numCols: [1, 2, 3, 4, 6, 7, 8], pctCols: [5], total: t1, cellFill: (i, c, v, row) => c === 5 && typeof v === 'number' ? (v >= 0.9 ? ['D1FAE5', '065F46'] : v >= 0.5 ? ['FEF3C7', '92400E'] : ['FEE2E2', '991B1B']) : null }), 'סיכום חודשי');
+  // 2. כמויות לפי קבלן
+  if (A.items.length) {
+    const nc = A.names.length, s2 = A.items.map(([k, t], i) => { const R = 5 + i; return [k, t.kind === 'sum' ? 'כמות' : 'מופעים', ...A.names.map(n => t.per.get(n) || ''), { v: [...t.per.values()].reduce((a, b) => a + b, 0), f: `SUM(${col(2)}${R}:${col(1 + nc)}${R})` }]; });
+    XLSX.utils.book_append_sheet(wb, mSheet(`כמויות לפי קבלן – ${ML}`, `סכום כמויות לפי סעיף עבודה, ואצל סעיפי בחירה – מספר המופעים · ${scopeTxt} · ${stamp}`,
+      ['סעיף עבודה', 'סוג', ...A.names, 'סה״כ'], s2, [38, 11, ...A.names.map(() => 14), 14], { numCols: [...A.names.map((_, i) => 2 + i), 2 + nc] }), 'כמויות לפי קבלן');
+  }
+  // 3. פעילות יומית
+  const [Y, Mo] = month.split('-').map(Number), dim = new Date(Y, Mo, 0).getDate(), WD = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'], nc3 = A.names.length;
+  const s3 = []; for (let d = 1; d <= dim; d++) { const R = 4 + d, wd = new Date(Y, Mo - 1, d).getDay(); s3.push([`${String(d).padStart(2, '0')}/${String(Mo).padStart(2, '0')}/${Y}`, WD[wd], ...A.names.map(n => A.cons.get(n).perDay.get(d) || ''), { v: A.names.reduce((a, n) => a + (A.cons.get(n).perDay.get(d) || 0), 0), f: nc3 ? `SUM(${col(2)}${R}:${col(1 + nc3)}${R})` : undefined }]); }
+  const L3 = 4 + dim, t3 = ['סה״כ', '', ...A.names.map((n, i) => ({ v: A.cons.get(n).n, f: `SUM(${col(2 + i)}5:${col(2 + i)}${L3})` })), { v: A.rows.length, f: `SUM(${col(2 + nc3)}5:${col(2 + nc3)}${L3})` }];
+  XLSX.utils.book_append_sheet(wb, mSheet(`פעילות יומית – ${ML}`, `מספר דיווחים לכל קבלן בכל יום · ימי שישי-שבת מסומנים באפור · ${stamp}`,
+    ['תאריך', 'יום', ...A.names, 'סה״כ'], s3, [14, 10, ...A.names.map(() => 14), 12], { numCols: A.names.map((_, i) => 2 + i).concat([2 + nc3]), total: t3,
+      cellFill: (i, c, v, row) => { if (c < 2) return (row[1] === 'שישי' || row[1] === 'שבת') ? ['E2E8F0', '475569'] : null; return typeof v === 'number' && v > 0 && c < 2 + nc3 ? ['BBF7D0', '065F46'] : ((row[1] === 'שישי' || row[1] === 'שבת') ? ['F1F5F9'] : null); } }), 'פעילות יומית');
+  // 4. גיליון לכל קבלן
+  const used = new Set(['סיכום חודשי', 'כמויות לפי קבלן', 'פעילות יומית', 'פירוט דיווחים']);
+  A.names.forEach(n => {
+    const o = A.cons.get(n); let nm = String(n).replace(/[\\\/\?\*\[\]:]/g, '').trim().slice(0, 27) || 'קבלן'; let u = nm, k = 2; while (used.has(u)) u = nm + ' ' + (k++); used.add(u);
+    const rows = [...o.rows].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.report_id).localeCompare(String(b.report_id)));
+    const data = rows.map(r => { const g = gpsOf(r), un = unitOf(r, null); return [dmy(r.date), r.report_id || '', r.company || '', r.project || '', r.city || '', r.address || '', un ? un.text : '', r.approval_status === 'approved' ? 'אושר' : r.approval_status === 'rejected' ? 'לא אושר' : 'ממתין', mLines(r).map(([k2, v]) => `${k2}: ${joinV(v)}`).join(' · '), g ? { v: 'פתח במפה', l: `https://www.google.com/maps?q=${g.latitude},${g.longitude}` } : '']; });
+    const L = 4 + data.length;
+    XLSX.utils.book_append_sheet(wb, mSheet(`${n} – ${ML}`, `${o.n} דיווחים · ✓ ${o.a} אושרו · ⏳ ${o.p} ממתינים · ✕ ${o.x} לא אושרו · ${o.days.size} ימי פעילות · ${stamp}`,
+      ['תאריך', 'מזהה דיווח', 'חברה', 'פרויקט / אתר', 'עיר', 'כתובת', 'גוב / עמוד', 'סטטוס', 'פירוט עבודה', 'ניווט'], data, [13, 18, 14, 24, 14, 26, 13, 12, 60, 13],
+      { total: ['סה״כ דיווחים', { v: data.length, f: `COUNTA(B5:B${L})` }, '', '', '', '', '', '', '', ''], cellFill: (i, c, v) => c === 7 ? (v === 'אושר' ? ['D1FAE5', '065F46'] : v === 'לא אושר' ? ['FEE2E2', '991B1B'] : ['FEF3C7', '92400E']) : null }), u);
+  });
+  // 5. פירוט מלא – שורה לכל דיווח
+  if (A.rows.length) { try { const full = buildWorkbook([...A.rows].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))), `פירוט דיווחים – ${ML}`, `${scopeTxt} · ${stamp}`); XLSX.utils.book_append_sheet(wb, full.Sheets['דיווחים'], 'פירוט דיווחים'); } catch (e) { console.error(e); } }
+  return wb;
+}
+function exportMonthlyXlsx() {
+  if (typeof XLSX === 'undefined') { showToast('ספריית האקסל עדיין נטענת, נסה שוב בעוד רגע'); return; }
+  const A = mAgg(mSel.month, mSel.scope);
+  if (!A.rows.length) { showToast('אין דיווחים בחודש הזה'); return; }
+  try { XLSX.writeFile(buildMonthlyWorkbook(mSel.month, mSel.scope), `${monthLabelOf(mSel.month)} – סיכום חודשי${mSel.scope === 'approved' ? ' (מאושרים)' : ''}.xlsx`); showToast('הסיכום החודשי הורד'); }
+  catch (e) { console.error(e); showToast('יצירת הקובץ נכשלה: ' + ((e && e.message) || e)); }
+}
+function renderMonthly() {
+  const months = mMonths();
+  if (!months.length) { $('#list').innerHTML = '<div class="err">אין עדיין דיווחים עם תאריך.</div>'; return; }
+  if (!months.includes(mSel.month)) { const n = new Date(), ck = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`; mSel.month = months.includes(ck) ? ck : months[0]; }
+  const A = mAgg(mSel.month, mSel.scope), nA = A.rows.filter(r => r.approval_status === 'approved').length, nX = A.rows.filter(r => r.approval_status === 'rejected').length;
+  const kp = (t, v, c) => `<div style="flex:1 1 130px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;text-align:center"><div style="color:var(--mut);font-size:12px">${t}</div><div style="font-size:24px;font-weight:800;color:${c || 'inherit'}">${v}</div></div>`;
+  const tbl = (head, body) => `<div style="overflow-x:auto"><table class="work-table"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const conBody = A.names.map(n => { const o = A.cons.get(n); return `<tr><td>${esc(n)}</td><td><b>${o.n}</b></td><td>${o.a}</td><td>${o.p}</td><td>${o.x}</td><td>${o.n ? Math.round(o.a / o.n * 100) : 0}%</td><td>${o.days.size}</td><td>${o.cities.size}</td></tr>`; }).join('');
+  const itemBody = A.items.map(([k, t]) => `<tr><td>${esc(k)}</td><td>${t.kind === 'sum' ? 'כמות' : 'מופעים'}</td>${A.names.map(n => `<td>${t.per.get(n) || ''}</td>`).join('')}<td><b>${[...t.per.values()].reduce((a, b) => a + b, 0)}</b></td></tr>`).join('');
+  $('#list').innerHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      <select id="m-mo">${months.map(k => `<option value="${k}"${k === mSel.month ? ' selected' : ''}>${esc(monthLabelOf(k))}</option>`).join('')}</select>
+      <select id="m-sc"><option value="all"${mSel.scope === 'all' ? ' selected' : ''}>כל הדיווחים</option><option value="approved"${mSel.scope === 'approved' ? ' selected' : ''}>רק דיווחים שאושרו</option></select>
+      <button class="btn pri" id="m-x" style="margin-inline-start:auto">⬇️ הורד אקסל חודשי</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">${kp('דיווחים', A.rows.length)}${kp('אושרו', nA, 'var(--ok,#16a34a)')}${kp('ממתינים', A.rows.length - nA - nX, 'var(--warn,#d97706)')}${kp('לא אושרו', nX, 'var(--bad,#dc2626)')}${kp('קבלנים', A.names.length)}</div>
+    ${A.rows.length ? `<div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px"><b>👷 סיכום לפי קבלן – ${esc(monthLabelOf(mSel.month))}</b>${tbl(['קבלן', 'דיווחים', 'אושרו', 'ממתינים', 'לא אושרו', '% אישור', 'ימי פעילות', 'ערים'], conBody)}</div>
+    ${A.items.length ? `<div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px"><b>🧮 כמויות לפי סעיף וקבלן</b>${tbl(['סעיף עבודה', 'סוג', ...A.names, 'סה״כ'], itemBody)}</div>` : ''}
+    <small style="color:var(--mut)">האקסל כולל: סיכום חודשי · כמויות לפי קבלן · פעילות יומית · גיליון נפרד לכל קבלן · פירוט מלא של כל הדיווחים. הסכומים באקסל הם נוסחאות חיות.</small>` : '<div class="err">אין דיווחים בחודש ובמסנן שנבחרו.</div>'}`;
+  $('#m-mo').onchange = e => { mSel.month = e.target.value; renderMonthly(); };
+  $('#m-sc').onchange = e => { mSel.scope = e.target.value; renderMonthly(); };
+  $('#m-x').onclick = exportMonthlyXlsx;
 }
 
 /* ייצוא לפי הסינון הנוכחי – הורדה רגילה */
