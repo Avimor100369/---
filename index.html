@@ -1140,6 +1140,7 @@ try { session = JSON.parse(localStorage.getItem('dash_session') || 'null'); } ca
 try { const t = localStorage.getItem('dash_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 
 function saveSession(s) {
+  if (s && s.factors) { s = { access_token: s.access_token, refresh_token: s.refresh_token, email: s.email }; }
   session = s;
   try { s ? localStorage.setItem('dash_session', JSON.stringify(s)) : localStorage.removeItem('dash_session'); } catch (e) {}
   if (s) { try { localStorage.setItem('dash_seen', String(Date.now())); } catch (e) {} }
@@ -1153,7 +1154,8 @@ async function auth(path, body) {
   });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error_description || j.msg || 'שגיאת התחברות');
-  return { access_token: j.access_token, refresh_token: j.refresh_token, email: j.user && j.user.email };
+  const fac = ((j.user && j.user.factors) || []).filter(f => f.factor_type === 'totp' && f.status === 'verified').map(f => f.id);
+  return { access_token: j.access_token, refresh_token: j.refresh_token, email: j.user && j.user.email, factors: fac };
 }
 
 async function api(url, opts = {}, retry = true) {
@@ -1199,7 +1201,9 @@ function renderLogin(msg, ok) {
   $('#lf').onsubmit = async e => {
     e.preventDefault();
     try {
-      saveSession(await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value }));
+      const s1 = await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value });
+      if (s1.factors && s1.factors.length) { renderMfaLogin(s1); return; }   // יש אימות דו-שלבי – מבקשים קוד לפני כניסה
+      saveSession(s1);
       start();
     } catch (err) { renderLogin(err.message); }
   };
@@ -1649,7 +1653,8 @@ function renderShell(extra = '') {
           <button class="btn" id="tg">${ic("image")} גלריית תמונות</button>
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
-          ${(userRole === 'admin' || admPushOk()) ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
+          ${true ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
+          <button class="btn adm-sub" id="tmfa"${admOpen ? '' : ' hidden'}>🔐 אימות דו-שלבי</button>
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="ts"${admOpen ? '' : ' hidden'}>${ic("folder")} נפח אחסון</button>` : ''}
           ${admPushOk() ? `<button class="btn adm-sub" id="tb"${admOpen ? '' : ' hidden'}>${admPushLabel()}</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="tu"${admOpen ? '' : ' hidden'}>${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
@@ -1716,6 +1721,7 @@ function renderShell(extra = '') {
   $('#tp').onclick = () => { view = 'places'; refresh(); };
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { admOpen = true; view = 'users'; refresh(); };
+  if ($('#tmfa')) $('#tmfa').onclick = () => { admOpen = true; view = 'mfa'; refresh(); };
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
   if ($('#ts')) $('#ts').onclick = () => { admOpen = true; view = 'storage'; refresh(); };
   if ($('#tb')) $('#tb').onclick = enableAdminPush;
@@ -1776,11 +1782,12 @@ function refresh() {
   $('#tp').classList.toggle('pri', view === 'places');
   $('#ta').classList.toggle('pri', view === 'analytics');
   if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
+  if ($('#tmfa')) $('#tmfa').classList.toggle('pri', view === 'mfa');
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
   if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
   if ($('#tmo')) $('#tmo').classList.toggle('pri', view === 'monthly');
-  if ($('#tgrp')) $('#tgrp').classList.toggle('pri', view === 'storage' || view === 'users');
+  if ($('#tgrp')) $('#tgrp').classList.toggle('pri', view === 'storage' || view === 'users' || view === 'mfa');
   if ($('#tt')) { $('#tt').classList.toggle('pri', view === 'todo'); const _n = reports.filter(r => !r.approval_status).length, _e = $('#ttn'); if (_e) { _e.textContent = _n; _e.style.display = _n ? '' : 'none'; } }
 
   if (view !== 'map') {
@@ -1792,6 +1799,7 @@ function refresh() {
   if (view === 'map') renderMap(rows);
   else if (view === 'places') renderPlaces(rows);
   else if (view === 'users' && userRole === 'admin') renderUsers();
+  else if (view === 'mfa') renderMfaView();
   else if (view === 'msgs' && userRole === 'admin') renderMsgs();
   else if (view === 'storage' && userRole === 'admin') renderStorage();
   else if (view === 'todo') renderTodo();
@@ -1870,6 +1878,82 @@ async function renderTodo() {
   document.querySelectorAll('[data-op]').forEach(b => { b.style.cursor = 'pointer'; b.onclick = () => openDetail(b.dataset.op); });
 }
 function fmtB(n) { n = Number(n) || 0; return n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
+
+/* ===== אימות דו-שלבי (TOTP) ===== */
+async function mfaCall(path, body, token, method) {
+  const r = await fetch(`${SB}/auth/v1/${path}`, { method: method || 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.msg || j.error_description || j.message || 'הפעולה נכשלה');
+  return j;
+}
+async function mfaVerify(fid, code, token) {
+  const ch = await mfaCall(`factors/${fid}/challenge`, null, token);
+  return await mfaCall(`factors/${fid}/verify`, { challenge_id: ch.id, code: String(code).replace(/\s/g, '') }, token);
+}
+function renderMfaLogin(s1) {
+  $('#app').innerHTML = `<form class="login" id="mf">
+    <h2>אימות דו-שלבי</h2>
+    <p>הזן את הקוד בן 6 הספרות מאפליקציית האימות בטלפון</p>
+    <input id="mc" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" dir="ltr" style="text-align:center;font-size:22px;letter-spacing:6px" required>
+    <div class="err" id="me" style="display:none"></div>
+    <button class="btn pri" style="width:100%;padding:12px;font-size:15px">אימות וכניסה</button>
+    <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="mb">חזרה</button></div>
+  </form>`;
+  $('#mc').focus();
+  $('#mb').onclick = () => renderLogin();
+  $('#mf').onsubmit = async e => {
+    e.preventDefault();
+    const er = $('#me'); er.style.display = 'none';
+    try {
+      const j = await mfaVerify(s1.factors[0], $('#mc').value, s1.access_token);
+      saveSession({ access_token: j.access_token, refresh_token: j.refresh_token, email: s1.email });
+      start();
+    } catch (err) { er.textContent = /invalid|expired|code/i.test(err.message) ? 'הקוד שגוי או שפג תוקפו. נסה שוב.' : err.message; er.style.display = 'block'; $('#mc').select(); }
+  };
+}
+async function renderMfaView() {
+  const box = $('#list');
+  box.innerHTML = '<div class="sk-wrap"><div class="sk sk-r"></div></div>';
+  let facs = [];
+  try { const r = await api(`${SB}/auth/v1/user`); if (r.ok) facs = ((await r.json()).factors || []).filter(f => f.factor_type === 'totp'); } catch (e) {}
+  const ver = facs.filter(f => f.status === 'verified');
+  const card = (inner) => `<div class="card" style="max-width:520px;margin:10px auto;padding:18px;line-height:1.7">${inner}</div>`;
+  if (ver.length) {
+    box.innerHTML = card(`<h3 style="margin-top:0">🔐 אימות דו-שלבי</h3><p style="color:var(--ok,#1a7f37);font-weight:700">✓ מופעל על החשבון שלך</p><p>בכל כניסה תתבקש להזין קוד מאפליקציית האימות.</p><button class="btn bad" id="mfoff">כיבוי האימות הדו-שלבי</button><div class="err" id="mfe" style="display:none;margin-top:10px"></div>`);
+    $('#mfoff').onclick = async () => {
+      if (!(await dlg({ title: 'כיבוי אימות דו-שלבי', text: 'החשבון יהיה פחות מוגן. להמשיך?', ok: 'כבה', danger: true }))) return;
+      try { for (const f of ver) await mfaCall(`factors/${f.id}`, null, session.access_token, 'DELETE'); showToast('האימות הדו-שלבי כובה'); renderMfaView(); }
+      catch (err) { const e = $('#mfe'); e.textContent = 'לא ניתן לכבות: ' + err.message + ' (ייתכן שצריך להתחבר מחדש עם קוד)'; e.style.display = 'block'; }
+    };
+    return;
+  }
+  box.innerHTML = card(`<h3 style="margin-top:0">🔐 אימות דו-שלבי</h3><p>הוסף שכבת הגנה: בנוסף לסיסמה, תתבקש להזין קוד מהטלפון בכל כניסה.</p><p style="font-size:13px;color:var(--mut)">צריך אפליקציית אימות בטלפון (Google Authenticator, Microsoft Authenticator וכדומה).</p><button class="btn pri" id="mfon">הפעלה</button><div class="err" id="mfe" style="display:none;margin-top:10px"></div>`);
+  $('#mfon').onclick = async () => {
+    const er = $('#mfe'); er.style.display = 'none';
+    try {
+      for (const f of facs) { try { await mfaCall(`factors/${f.id}`, null, session.access_token, 'DELETE'); } catch (e) {} }   // ניקוי ניסיון קודם שלא הושלם
+      const f = await mfaCall('factors', { factor_type: 'totp', friendly_name: 'לוח ניהול ' + Date.now(), issuer: 'לוח ניהול' }, session.access_token);
+      box.innerHTML = card(`<h3 style="margin-top:0">🔐 הפעלת אימות דו-שלבי</h3>
+        <p><b>1.</b> באפליקציית האימות בטלפון בחר להוסיף חשבון וסרוק את הקוד:</p>
+        <div style="text-align:center;background:#fff;padding:10px;border-radius:12px"><img src="${esc(f.totp.qr_code)}" alt="QR" style="width:200px;height:200px"></div>
+        <p style="font-size:13px">אם אי אפשר לסרוק, הזן ידנית את המפתח:<br><b dir="ltr" style="user-select:all;word-break:break-all">${esc(f.totp.secret)}</b></p>
+        <p><b>2.</b> הזן את הקוד בן 6 הספרות שמוצג באפליקציה:</p>
+        <input id="mfc" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" dir="ltr" placeholder="000000" style="text-align:center;font-size:20px;letter-spacing:5px">
+        <div style="margin-top:10px"><button class="btn pri" id="mfv">אימות והפעלה</button> <button class="btn" id="mfx">ביטול</button></div>
+        <div class="err" id="mfe" style="display:none;margin-top:10px"></div>`);
+      $('#mfx').onclick = async () => { try { await mfaCall(`factors/${f.id}`, null, session.access_token, 'DELETE'); } catch (e) {} renderMfaView(); };
+      $('#mfv').onclick = async () => {
+        const e2 = $('#mfe'); e2.style.display = 'none';
+        try {
+          const j = await mfaVerify(f.id, $('#mfc').value, session.access_token);
+          saveSession({ access_token: j.access_token, refresh_token: j.refresh_token, email: session.email });
+          showToast('האימות הדו-שלבי הופעל'); renderMfaView();
+        } catch (err) { e2.textContent = /invalid|expired|code/i.test(err.message) ? 'הקוד שגוי. נסה שוב עם הקוד הנוכחי.' : err.message; e2.style.display = 'block'; }
+      };
+    } catch (err) { er.textContent = 'לא ניתן להפעיל: ' + err.message; er.style.display = 'block'; }
+  };
+}
+
 async function renderStorage() {
   $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(3) + '</div>';
   let d = null, why = '';
@@ -3276,7 +3360,7 @@ let lastRefresh = Date.now();
 async function softRefresh() {
   if (!session || !$('#list') || document.visibilityState !== 'visible') return;
   if ($('#modal') && $('#modal').classList.contains('open')) return;        // חלון דיווח פתוח
-  if (view === 'users' || view === 'map' || view === 'msgs') return;                           // מסכים שלא כדאי להפריע בהם
+  if (view === 'users' || view === 'map' || view === 'msgs' || view === 'mfa') return;                           // מסכים שלא כדאי להפריע בהם
   const a = document.activeElement;
   if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;             // באמצע הקלדה
   try {
