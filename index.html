@@ -1198,8 +1198,10 @@ function renderLogin(msg, ok) {
     <div style="text-align:center;margin-top:10px"><button type="button" class="link" id="fg">שכחתי סיסמה</button></div>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--mut)">גרסה 23.11 – תיקון כניסה</div>
   </form>`;
+  try { const em0 = localStorage.getItem('dash_email'); if (em0 && !$('#em').value) { $('#em').value = em0; $('#pw').focus(); } } catch (x) {}
   $('#lf').onsubmit = async e => {
     e.preventDefault();
+    try { localStorage.setItem('dash_email', $('#em').value.trim()); } catch (x) {}
     try {
       const s1 = await auth('token?grant_type=password', { email: $('#em').value.trim(), password: $('#pw').value });
       if (s1.factors && s1.factors.length) { renderMfaLogin(s1); return; }   // יש אימות דו-שלבי – מבקשים קוד לפני כניסה
