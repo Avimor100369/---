@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ב · נפח אחסון</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ג · טיפול</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1641,6 +1641,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
+          <button class="btn" id="tt">📋 טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
           ${userRole === 'admin' ? `<button class="btn" id="ts">💾 נפח</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
         </div>
@@ -1708,6 +1709,7 @@ function renderShell(extra = '') {
   if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
   if ($('#ts')) $('#ts').onclick = () => { view = 'storage'; refresh(); };
+  if ($('#tt')) $('#tt').onclick = () => { view = 'todo'; refresh(); };
   $('#e1').onclick = () => exportExcelMonthly(false);
   $('#e2').onclick = exportExcelStyled;
   if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
@@ -1765,6 +1767,7 @@ function refresh() {
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
   if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
+  if ($('#tt')) { $('#tt').classList.toggle('pri', view === 'todo'); const _n = reports.filter(r => !r.approval_status).length, _e = $('#ttn'); if (_e) { _e.textContent = _n; _e.style.display = _n ? '' : 'none'; } }
 
   if (view !== 'map') {
     mapTok++;
@@ -1777,6 +1780,7 @@ function refresh() {
   else if (view === 'users' && userRole === 'admin') renderUsers();
   else if (view === 'msgs' && userRole === 'admin') renderMsgs();
   else if (view === 'storage' && userRole === 'admin') renderStorage();
+  else if (view === 'todo') renderTodo();
   else if (view === 'gallery') renderGalleryHub(rows);
   else if (view === 'analytics') renderAnalytics(rows);
   else renderList(rows);
@@ -1801,6 +1805,53 @@ async function updateReqBadge(force) {
     const n = r.ok ? (await r.json()).length : 0, el = document.getElementById('tun');
     if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
   } catch (e) {}
+}
+function pDate(v) {
+  v = String(v || '').trim(); let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], m[2] - 1, +m[3]);
+  m = v.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/);
+  if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], m[2] - 1, +m[1]);
+  return null;
+}
+function goList(o) {
+  fCompany = fProject = fCity = fFrom = fTo = fContractor = fStatus = '';
+  if (o && o.c) fContractor = o.c;
+  if (o && o.st) fStatus = o.st;
+  view = 'list'; renderShell();
+}
+async function renderTodo() {
+  const day0 = new Date(); day0.setHours(0, 0, 0, 0);
+  const ageD = d => Math.round((day0 - d) / 864e5);
+  const pend = reports.filter(r => !r.approval_status);
+  let reqN = 0;
+  if (userRole === 'admin') { try { const q = await api(`${SB}/rest/v1/password_requests?select=id&handled=eq.false`); if (q.ok) reqN = (await q.json()).length; } catch (e) {} }
+  const names = new Set(reports.map(r => r.contractor_name).filter(Boolean));
+  if (userRole === 'admin') { try { const q = await api(`${SB}/rest/v1/profiles?select=contractor_name,role&role=eq.contractor`); if (q.ok) (await q.json()).forEach(u => { if (u.contractor_name) names.add(u.contractor_name); }); } catch (e) {} }
+  const last = new Map();
+  reports.forEach(r => { const d = pDate(r.date); if (!d || !r.contractor_name) return; const o = last.get(r.contractor_name); if (!o || d > o) last.set(r.contractor_name, d); });
+  const crows = [...names].map(n => ({ n, d: last.get(n), a: last.has(n) ? ageD(last.get(n)) : null })).sort((x, y) => (y.a === null ? 9999 : y.a) - (x.a === null ? 9999 : x.a));
+  const recent = reports.filter(r => { const d = pDate(r.date); return d && ageD(d) <= 30; });
+  const noGps = recent.filter(r => !gpsOf(r)), noPh = recent.filter(r => !photosOf(r).length);
+  const card = (t, body, c) => `<div style="background:var(--card);border:1px solid ${c || 'var(--line)'};border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)"><b>${t}</b>${body}</div>`;
+  const line = (inner, attrs) => `<div ${attrs || ''} style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)">${inner}</div>`;
+  const ageTxt = a => a === null ? 'אין דיווחים' : a <= 0 ? 'דיווח היום' : a === 1 ? 'אתמול' : 'לפני ' + a + ' ימים';
+  const ageCol = a => a === null || a >= 3 ? 'var(--bad,#dc2626)' : a === 0 ? 'var(--ok,#16a34a)' : 'var(--mut)';
+  const sample = (arr) => arr.slice(0, 8).map(r => line(`<span style="font-weight:600">${esc(r.project || r.report_id || '')}</span><span style="color:var(--mut);font-size:12px">${esc(r.contractor_name || '')} · ${esc(r.date || '')}</span>`, `data-op="${esc(r.report_id)}" role="button" tabindex="0"`)).join('') + (arr.length > 8 ? `<div style="color:var(--mut);font-size:12px;padding-top:6px">ועוד ${arr.length - 8}…</div>` : '');
+  const todo = [];
+  $('#list').innerHTML =
+    card('🔔 מה דורש טיפול עכשיו',
+      line(`<span>⏳ דיווחים ממתינים לאישור</span><b>${pend.length}</b><span style="margin-inline-start:auto">${pend.length ? '<button class="btn sm pri" id="td-p">הצג</button>' : '<span style="color:var(--ok,#16a34a)">✓ הכול מטופל</span>'}</span>`)
+      + (userRole === 'admin' ? line(`<span>🔑 בקשות איפוס סיסמה</span><b>${reqN}</b><span style="margin-inline-start:auto">${reqN ? '<button class="btn sm pri" id="td-r">פתח</button>' : '<span style="color:var(--ok,#16a34a)">✓ אין</span>'}</span>`) : '')
+      + line(`<span>📍 דיווחים ללא GPS (30 יום)</span><b>${noGps.length}</b>`) + line(`<span>📷 דיווחים ללא תמונות (30 יום)</span><b>${noPh.length}</b>`), (pend.length || reqN) ? 'var(--warn)' : '')
+    + card('👷 מתי כל קבלן דיווח לאחרונה', (crows.length ? crows.map(c => line(`<span style="font-weight:600;min-width:120px">${esc(c.n)}</span><span style="color:${ageCol(c.a)};font-weight:600">${ageTxt(c.a)}</span><span style="color:var(--mut);font-size:12px">${c.d ? c.d.toLocaleDateString('he-IL') : ''}</span><span style="margin-inline-start:auto"><button class="btn sm" data-tc="${esc(c.n)}">הצג דיווחים</button></span>`)).join('') : '<div style="color:var(--mut);margin-top:8px">אין קבלנים להצגה</div>')
+      + '<small style="color:var(--mut);display:block;margin-top:8px">באדום: 3 ימים ומעלה בלי דיווח (סופי שבוע נספרים).</small>')
+    + (noGps.length ? card('📍 ללא GPS – 30 הימים האחרונים', sample(noGps)) : '')
+    + (noPh.length ? card('📷 ללא תמונות – 30 הימים האחרונים', sample(noPh)) : '');
+  const g = id => document.getElementById(id);
+  if (g('td-p')) g('td-p').onclick = () => goList({ st: 'pending' });
+  if (g('td-r')) g('td-r').onclick = () => { view = 'users'; refresh(); };
+  document.querySelectorAll('[data-tc]').forEach(b => b.onclick = () => goList({ c: b.dataset.tc }));
+  document.querySelectorAll('[data-op]').forEach(b => { b.style.cursor = 'pointer'; b.onclick = () => openDetail(b.dataset.op); });
 }
 function fmtB(n) { n = Number(n) || 0; return n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
 async function renderStorage() {
