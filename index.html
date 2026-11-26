@@ -1880,6 +1880,12 @@ async function renderTodo() {
 function fmtB(n) { n = Number(n) || 0; return n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
 
 /* ===== אימות דו-שלבי (TOTP) ===== */
+// ה-QR מגיע כ-SVG בתוך data URI בלי קידוד; תווים כמו # שוברים אותו, לכן מקודדים מחדש
+function mfaQrSrc(q) {
+  q = String(q || '');
+  if (/^data:image\/svg\+xml/i.test(q)) { const i = q.indexOf(','); let svg = q.slice(i + 1); try { svg = decodeURIComponent(svg); } catch (e) {} return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }
+  return q;
+}
 async function mfaCall(path, body, token, method) {
   const r = await fetch(`${SB}/auth/v1/${path}`, { method: method || 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
@@ -1935,7 +1941,7 @@ async function renderMfaView() {
       const f = await mfaCall('factors', { factor_type: 'totp', friendly_name: 'לוח ניהול ' + Date.now(), issuer: 'לוח ניהול' }, session.access_token);
       box.innerHTML = card(`<h3 style="margin-top:0">🔐 הפעלת אימות דו-שלבי</h3>
         <p><b>1.</b> באפליקציית האימות בטלפון בחר להוסיף חשבון וסרוק את הקוד:</p>
-        <div style="text-align:center;background:#fff;padding:10px;border-radius:12px"><img src="${esc(f.totp.qr_code)}" alt="QR" style="width:200px;height:200px"></div>
+        <div style="text-align:center;background:#fff;padding:10px;border-radius:12px"><img src="${esc(mfaQrSrc(f.totp.qr_code))}" alt="QR" style="width:200px;height:200px"></div>
         <p style="font-size:13px">אם אי אפשר לסרוק, הזן ידנית את המפתח:<br><b dir="ltr" style="user-select:all;word-break:break-all">${esc(f.totp.secret)}</b></p>
         <p><b>2.</b> הזן את הקוד בן 6 הספרות שמוצג באפליקציה:</p>
         <input id="mfc" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" dir="ltr" placeholder="000000" style="text-align:center;font-size:20px;letter-spacing:5px">
