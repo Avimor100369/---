@@ -1220,7 +1220,7 @@ function renderReset(token) {
   $('#app').innerHTML = `<form class="login" id="rf2">
     <h2>בחירת סיסמה חדשה</h2>
     <p>הזן סיסמה חדשה לחשבונך</p>
-    <input id="np" type="password" placeholder="סיסמה חדשה (לפחות 6 תווים)" autocomplete="new-password" minlength="6" required>
+    <input id="np" type="password" placeholder="סיסמה חדשה (לפחות 8 תווים)" autocomplete="new-password" minlength="8" required>
     <button class="btn pri" style="width:100%;padding:12px">שמירת סיסמה</button>
   </form>`;
   $('#rf2').onsubmit = async e => {
@@ -1802,10 +1802,10 @@ function refresh() {
 }
 
 async function resetPw(id, em) {
-  const v = await dlg({ title: 'איפוס סיסמה', text: 'סיסמה חדשה עבור ' + em + ' (לפחות 6 תווים). המשתמש יאומת אוטומטית ויוכל להתחבר מיד.', input: true, ok: 'עדכן סיסמה', cancel: 'ביטול' });
+  const v = await dlg({ title: 'איפוס סיסמה', text: 'סיסמה חדשה עבור ' + em + ' (לפחות 8 תווים). המשתמש יאומת אוטומטית ויוכל להתחבר מיד.', input: true, ok: 'עדכן סיסמה', cancel: 'ביטול' });
   if (v === null || v === undefined || v === false) return false;
   const pw = String(v).trim();
-  if (pw.length < 6) { showToast('הסיסמה חייבת להכיל לפחות 6 תווים'); return false; }
+  if (pw.length < 8) { showToast('הסיסמה חייבת להכיל לפחות 8 תווים'); return false; }
   const d = await api(`${SB}/rest/v1/rpc/admin_set_password`, { method: 'POST', body: JSON.stringify({ target: id, new_password: pw }) });
   showToast(d.ok ? 'הסיסמה עודכנה – אפשר להתחבר' : 'העדכון נכשל – ודא שהרצת את supabase_user_admin.sql');
   return d.ok;
@@ -1922,7 +1922,7 @@ async function renderUsers() {
       <b>➕ פתיחת משתמש חדש</b>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
         <input id="nu-email" type="email" dir="ltr" placeholder="אימייל" style="flex:2 1 200px">
-        <input id="nu-pass" type="text" dir="ltr" placeholder="סיסמה (לפחות 6 תווים)" style="flex:1 1 160px">
+        <input id="nu-pass" type="text" dir="ltr" placeholder="סיסמה (לפחות 8 תווים)" style="flex:1 1 160px">
         <button class="btn pri" id="nu-add">צור משתמש</button>
       </div>
       <small style="color:var(--mut)">המשתמש נוצר כ"קבלן" וללא גישה לדיווחים עד שתגדיר לו תפקיד / שם קבלן כאן למטה.</small>
@@ -1964,7 +1964,7 @@ async function renderUsers() {
 
   $('#nu-add').onclick = async () => {
     const email = $('#nu-email').value.trim(), password = $('#nu-pass').value;
-    if (!email || password.length < 6) { showToast('יש להזין אימייל וסיסמה של 6 תווים לפחות'); return; }
+    if (!email || password.length < 8) { showToast('יש להזין אימייל וסיסמה של 8 תווים לפחות'); return; }
     const addBtn = $('#nu-add'); addBtn.disabled = true;
     // קודם: פונקציית create-user (בלי מייל, בלי מגבלת מיילים). אם עוד לא הועלתה – ממשיכים בדרך הישנה.
     let fr = null, fj = {};
