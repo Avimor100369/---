@@ -1934,7 +1934,7 @@ async function renderUsers() {
         <td><input data-fn="${esc(u.id)}" value="${esc(u.full_name || '')}" placeholder="שם להצגה בברכה"></td>
         <td><select data-role="${esc(u.id)}"${u.id === userId ? ' disabled title="לא ניתן לשנות את התפקיד של עצמך"' : ''}>${opts(u.role)}</select></td>
         <td><input data-cn="${esc(u.id)}" value="${esc(u.contractor_name || '')}" placeholder="רק לתפקיד קבלן"></td>
-        <td style="white-space:nowrap"><button class="btn sm pri" data-save="${esc(u.id)}">שמירה</button> <button class="btn sm" data-pw="${esc(u.id)}" data-em="${esc(u.email || '')}" title="קביעת סיסמה חדשה ואימות המשתמש">איפוס סיסמה</button></td>
+        <td style="white-space:nowrap"><button class="btn sm pri" data-save="${esc(u.id)}">שמירה</button> <button class="btn sm" data-pw="${esc(u.id)}" data-em="${esc(u.email || '')}" title="קביעת סיסמה חדשה ואימות המשתמש">איפוס סיסמה</button>${u.id !== userId && u.role !== 'admin' ? ` <button class="btn sm" data-del="${esc(u.id)}" data-em="${esc(u.email || '')}" title="מחיקת המשתמש (הדיווחים שלו נשארים)">מחיקה</button>` : ''}</td>
       </tr>`).join('')}</tbody>
     </table></div>`;
 
@@ -1952,6 +1952,12 @@ async function renderUsers() {
   });
 
   document.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => resetPw(b.dataset.pw, b.dataset.em));
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!(await dlg({ title: 'מחיקת משתמש', text: 'למחוק את ' + b.dataset.em + '? המשתמש לא יוכל להתחבר יותר. הדיווחים שלו נשארים במערכת.', ok: 'מחק משתמש', danger: true }))) return;
+    const d = await api(`${SB}/rest/v1/rpc/admin_delete_user`, { method: 'POST', body: JSON.stringify({ target: b.dataset.del }) });
+    showToast(d.ok ? 'המשתמש נמחק' : 'המחיקה נכשלה – ודא שהרצת את supabase_delete_user.sql');
+    if (d.ok) renderUsers();
+  });
   document.querySelectorAll('[data-rq-reset]').forEach(b => b.onclick = async () => {
     const u = users.find(x => x.id === b.dataset.uid);
     if (!u) { showToast('לא נמצא משתמש מתאים – אפס ידנית בטבלה למטה'); return; }
