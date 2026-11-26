@@ -964,6 +964,8 @@ header .btn.bad { background: rgba(251,113,133,.18); color: #fecdd3; border-colo
 .list-head { position: static; }
 .row { padding: 11px 16px; border-radius: 10px; margin-bottom: 6px; }
 .map-bar b { font-weight: 700; }
+.side .adm-sub[hidden] { display: none !important; }
+.side .tabs .adm-sub { padding-inline-start: 30px; }
 @media (max-width: 960px) {
   .shell { grid-template-columns: 1fr; }
   .side { position: static; height: auto; flex-direction: row; align-items: center; overflow-x: auto; padding: 8px 12px; border-inline-end: 0; border-bottom: 1px solid var(--line); }
@@ -1281,6 +1283,7 @@ ${esc(SQL_HINT)}</div>`);
 
 let fCompany = '', fContractor = '', fProject = '', fCity = '', fFrom = '', fTo = '';
 var fStatus = '';
+var admOpen = false;
 let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0, leafletP = null, mapMode = 'all', cityMaps = [];
 
 function parseJ(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
@@ -1629,7 +1632,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ה · התראות מנהל</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ו · תפריט מקובץ</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1637,18 +1640,19 @@ function renderShell(extra = '') {
     <div class="shell"><aside class="side">
       <div class="side-h">ניווט</div>
         <div class="tabs">
+          <button class="btn" id="tt">${ic("check")} טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
           <button class="btn" id="tl">${ic("list")} רשימת דיווחים</button>
           <button class="btn" id="tw">${ic("clock")} ממתינים לאישור <span class="nbadge" id="twn"></span></button>
-          <button class="btn" id="tg">${ic("image")} גלריית תמונות</button>
+          <button class="btn" id="tmo">${ic("file")} סיכום חודשי</button>
           <button class="btn" id="tm">${ic("map")} מפת עבודות</button>
+          ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
+          <button class="btn" id="tg">${ic("image")} גלריית תמונות</button>
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
-          ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
-          <button class="btn" id="tm">📊 חודשי</button>
-          <button class="btn" id="tt">📋 טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
-          ${userRole === 'admin' ? `<button class="btn" id="ts">💾 נפח</button>` : ''}
-          ${admPushOk() ? `<button class="btn" id="tb">${admPushLabel()}</button>` : ''}
-          ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
+          ${(userRole === 'admin' || admPushOk()) ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
+          ${userRole === 'admin' ? `<button class="btn adm-sub" id="ts"${admOpen ? '' : ' hidden'}>${ic("folder")} נפח אחסון</button>` : ''}
+          ${admPushOk() ? `<button class="btn adm-sub" id="tb"${admOpen ? '' : ' hidden'}>${admPushLabel()}</button>` : ''}
+          ${userRole === 'admin' ? `<button class="btn adm-sub" id="tu"${admOpen ? '' : ' hidden'}>${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
         </div>
       <div class="side-h">ייצוא</div>
       <div class="side-ex">
@@ -1711,12 +1715,13 @@ function renderShell(extra = '') {
   $('#tm').onclick = () => { view = 'map'; refresh(); };
   $('#tp').onclick = () => { view = 'places'; refresh(); };
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
-  if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
+  if ($('#tu')) $('#tu').onclick = () => { admOpen = true; view = 'users'; refresh(); };
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
-  if ($('#ts')) $('#ts').onclick = () => { view = 'storage'; refresh(); };
+  if ($('#ts')) $('#ts').onclick = () => { admOpen = true; view = 'storage'; refresh(); };
   if ($('#tb')) $('#tb').onclick = enableAdminPush;
   if ($('#tt')) $('#tt').onclick = () => { view = 'todo'; refresh(); };
-  if ($('#tm')) $('#tm').onclick = () => { view = 'monthly'; refresh(); };
+  if ($('#tmo')) $('#tmo').onclick = () => { view = 'monthly'; refresh(); };
+  if ($('#tgrp')) $('#tgrp').onclick = () => { admOpen = !admOpen; document.querySelectorAll('.adm-sub').forEach(b => { b.hidden = !admOpen; }); const ar = document.getElementById('tgar'); if (ar) ar.textContent = admOpen ? '▲' : '▼'; };
   $('#e1').onclick = () => exportExcelMonthly(false);
   $('#e2').onclick = exportExcelStyled;
   if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
@@ -1774,7 +1779,8 @@ function refresh() {
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
   if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
-  if ($('#tm')) $('#tm').classList.toggle('pri', view === 'monthly');
+  if ($('#tmo')) $('#tmo').classList.toggle('pri', view === 'monthly');
+  if ($('#tgrp')) $('#tgrp').classList.toggle('pri', view === 'storage' || view === 'users');
   if ($('#tt')) { $('#tt').classList.toggle('pri', view === 'todo'); const _n = reports.filter(r => !r.approval_status).length, _e = $('#ttn'); if (_e) { _e.textContent = _n; _e.style.display = _n ? '' : 'none'; } }
 
   if (view !== 'map') {
@@ -1813,6 +1819,7 @@ async function updateReqBadge(force) {
     const r = await api(`${SB}/rest/v1/password_requests?select=id&handled=eq.false`);
     const n = r.ok ? (await r.json()).length : 0, el = document.getElementById('tun');
     if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
+    const g2 = document.getElementById('tgn'); if (g2) { g2.textContent = n; g2.style.display = n ? '' : 'none'; }
   } catch (e) {}
 }
 function pDate(v) {
@@ -3364,7 +3371,7 @@ function start() {
 /* ===== התראות Push למנהל (בקשת איפוס סיסמה / דיווח חדש / הודעות) ===== */
 var ADM_VAPID = 'BILvigSt7Oi1CiRG0nLC-uH4W2u83Uumuq0ijuEhZkIJ_H1KWdpFG0fyAmgws2pdWbDN6ue8YVb7OufjErYVXQk';
 function admPushOk() { return !!session && ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window) && location.protocol === 'https:'; }
-function admPushLabel() { return ('Notification' in window && Notification.permission === 'granted') ? '🔔 התראות פעילות ✓' : '🔔 התראות בטלפון'; }
+function admPushLabel() { return ic("bell") + (('Notification' in window && Notification.permission === 'granted') ? ' התראות פעילות ✓' : ' התראות בטלפון'); }
 function admB64(b) { const p = '='.repeat((4 - b.length % 4) % 4), r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); }
 async function admSub(reg) {
   let sub = await reg.pushManager.getSubscription();
