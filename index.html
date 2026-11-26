@@ -2026,7 +2026,7 @@ async function renderUsers() {
         <span style="margin-inline-start:auto;display:flex;gap:6px">${m ? `<button class="btn sm pri" data-rq-reset="${esc(q.id)}" data-uid="${esc(m.id)}">אפס סיסמה</button>` : ''}<button class="btn sm" data-rq-done="${esc(q.id)}">סמן כטופל</button></span></div>`; }).join('')}
     </div>` : ''}
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)">
-      <b>➕ פתיחת משתמש חדש</b>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>➕ פתיחת משתמש חדש</b><button class="btn sm" id="nu-export" style="margin-inline-start:auto" title="קובץ אקסל/CSV עם כל המשתמשים (בלי סיסמאות)">⬇ ייצוא רשימת משתמשים</button></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
         <input id="nu-email" type="email" dir="ltr" placeholder="אימייל" style="flex:2 1 200px">
         <input id="nu-pass" type="text" dir="ltr" placeholder="סיסמה (לפחות 8 תווים)" style="flex:1 1 160px">
@@ -2059,6 +2059,18 @@ async function renderUsers() {
   });
 
   document.querySelectorAll('[data-pw]').forEach(b => b.onclick = () => resetPw(b.dataset.pw, b.dataset.em));
+  $('#nu-export').onclick = () => {
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const head = ['אימייל', 'שם מלא', 'תפקיד', 'שם קבלן', 'נוצר בתאריך'];
+    const rowsCsv = users.map(u => [u.email || '', u.full_name || '', ROLE_LABELS[u.role] || u.role || '', u.contractor_name || '', u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : '']);
+    const csv = '\ufeff' + [head, ...rowsCsv].map(r => r.map(q).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    showToast('נוצר קובץ עם ' + users.length + ' משתמשים');
+  };
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!(await dlg({ title: 'מחיקת משתמש', text: 'למחוק את ' + b.dataset.em + '? המשתמש לא יוכל להתחבר יותר. הדיווחים שלו נשארים במערכת.', ok: 'מחק משתמש', danger: true }))) return;
     const d = await api(`${SB}/rest/v1/rpc/admin_delete_user`, { method: 'POST', body: JSON.stringify({ target: b.dataset.del }) });
