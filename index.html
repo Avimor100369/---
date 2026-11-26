@@ -1965,9 +1965,20 @@ async function renderUsers() {
   $('#nu-add').onclick = async () => {
     const email = $('#nu-email').value.trim(), password = $('#nu-pass').value;
     if (!email || password.length < 6) { showToast('יש להזין אימייל וסיסמה של 6 תווים לפחות'); return; }
+    const addBtn = $('#nu-add'); addBtn.disabled = true;
+    // קודם: פונקציית create-user (בלי מייל, בלי מגבלת מיילים). אם עוד לא הועלתה – ממשיכים בדרך הישנה.
+    let fr = null, fj = {};
+    try { fr = await api(`${SB}/functions/v1/create-user`, { method: 'POST', body: JSON.stringify({ email, password }) }); fj = await fr.json().catch(() => ({})); } catch (e) { fr = null; }
+    if (fr && fr.ok && fj.ok) { addBtn.disabled = false; showToast('המשתמש נוצר ואומת – אפשר להתחבר מיד'); setTimeout(renderUsers, 900); return; }
+    if (fr && (fr.status === 400 || fr.status === 403) && fj.error) { addBtn.disabled = false; dlg({ title: 'יצירת המשתמש נכשלה', text: fj.error, ok: 'הבנתי', noCancel: true }); return; }
+    addBtn.disabled = false;
     const res = await fetch(`${SB}/auth/v1/signup`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) { dlg({ title: 'יצירת המשתמש נכשלה', text: j.msg || j.error_description || 'נסה שוב', ok: 'הבנתי', noCancel: true }); return; }
+    if (!res.ok) {
+      const m = j.msg || j.error_description || 'נסה שוב';
+      dlg({ title: 'יצירת המשתמש נכשלה', text: /rate limit/i.test(m) ? 'Supabase חסם זמנית את שליחת המיילים (יותר מדי משתמשים בשעה). העלה את פונקציית create-user, או כבה Confirm email ב-Supabase ונסה שוב בעוד כשעה.' : m, ok: 'הבנתי', noCancel: true });
+      return;
+    }
     const nid = (j.user && j.user.id) || j.id;
     let conf = false;
     if (nid) { try { conf = (await api(`${SB}/rest/v1/rpc/admin_confirm_user`, { method: 'POST', body: JSON.stringify({ target: nid }) })).ok; } catch (e) {} }
