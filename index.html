@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Executive Control Portal – ניהול ובקרת שטח</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="theme-color" content="#0a2a4a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1626,7 +1629,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ד · חודשי</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ה · התראות מנהל</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1644,6 +1647,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tm">📊 חודשי</button>
           <button class="btn" id="tt">📋 טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
           ${userRole === 'admin' ? `<button class="btn" id="ts">💾 נפח</button>` : ''}
+          ${admPushOk() ? `<button class="btn" id="tb">${admPushLabel()}</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
         </div>
       <div class="side-h">ייצוא</div>
@@ -1710,6 +1714,7 @@ function renderShell(extra = '') {
   if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
   if ($('#ts')) $('#ts').onclick = () => { view = 'storage'; refresh(); };
+  if ($('#tb')) $('#tb').onclick = enableAdminPush;
   if ($('#tt')) $('#tt').onclick = () => { view = 'todo'; refresh(); };
   if ($('#tm')) $('#tm').onclick = () => { view = 'monthly'; refresh(); };
   $('#e1').onclick = () => exportExcelMonthly(false);
@@ -3356,6 +3361,37 @@ function start() {
   if (session) setTimeout(checkMsgs, 2500);
   session ? load() : renderLogin(locked ? 'נותקת עקב חוסר פעילות של 30 דקות – יש להתחבר מחדש.' : undefined, !!locked);
 }
+/* ===== התראות Push למנהל (בקשת איפוס סיסמה / דיווח חדש / הודעות) ===== */
+var ADM_VAPID = 'BILvigSt7Oi1CiRG0nLC-uH4W2u83Uumuq0ijuEhZkIJ_H1KWdpFG0fyAmgws2pdWbDN6ue8YVb7OufjErYVXQk';
+function admPushOk() { return !!session && ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window) && location.protocol === 'https:'; }
+function admPushLabel() { return ('Notification' in window && Notification.permission === 'granted') ? '🔔 התראות פעילות ✓' : '🔔 התראות בטלפון'; }
+function admB64(b) { const p = '='.repeat((4 - b.length % 4) % 4), r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); }
+async function admSub(reg) {
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) { try { const cur = sub.options && sub.options.applicationServerKey, want = admB64(ADM_VAPID); if (cur && (cur.byteLength !== want.length || new Uint8Array(cur).some((v, i) => v !== want[i]))) { await sub.unsubscribe(); sub = null; } } catch (e) {} }
+  return sub || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: admB64(ADM_VAPID) });
+}
+async function admSave(sub) {
+  const k = sub.toJSON().keys || {};
+  const r = await api(`${SB}/rest/v1/push_subscriptions?on_conflict=endpoint`, { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ endpoint: sub.endpoint, p256dh: k.p256dh, auth: k.auth }) });
+  return r.ok;
+}
+async function enableAdminPush() {
+  try {
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone)) { dlg({ title: 'התראות באייפון', text: 'באייפון צריך קודם להוסיף את האתר למסך הבית: כפתור השיתוף ← "הוספה למסך הבית", ואז לפתוח אותו משם וללחוץ שוב על "התראות בטלפון".', ok: 'הבנתי' }); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast('ההתראות נחסמו. אפשר לאשר אותן בהגדרות הדפדפן.'); return; }
+    const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' }).then(() => navigator.serviceWorker.ready);
+    const ok = await admSave(await admSub(reg));
+    showToast(ok ? 'ההתראות הופעלו במכשיר הזה' : 'ההרשמה לא נשמרה – ודא שהרצת את supabase_push.sql');
+    const b = document.getElementById('tb'); if (b) b.innerHTML = admPushLabel();
+  } catch (e) { console.error(e); showToast('הפעלת ההתראות נכשלה'); }
+}
+async function refreshAdminPush() {
+  try { if (!admPushOk() || Notification.permission !== 'granted') return; const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' }).then(() => navigator.serviceWorker.ready); await admSave(await admSub(reg)); } catch (e) {}
+}
+setTimeout(refreshAdminPush, 6000);
+
 start();
 </script>
 </body>
