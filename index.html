@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-א · נפח אחסון</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-ב · נפח אחסון</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1805,9 +1805,9 @@ async function updateReqBadge(force) {
 function fmtB(n) { n = Number(n) || 0; return n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
 async function renderStorage() {
   $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(3) + '</div>';
-  let d = null;
-  try { const r = await api(`${SB}/rest/v1/rpc/admin_storage_stats`, { method: 'POST', body: '{}' }); if (r.ok) d = await r.json(); } catch (e) {}
-  if (!d) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון נתוני נפח. ודא שהרצת ב-Supabase את הקובץ supabase_storage_stats.sql (פעם אחת).</div>'; return; }
+  let d = null, why = '';
+  try { const r = await api(`${SB}/rest/v1/rpc/admin_storage_stats`, { method: 'POST', body: '{}' }); if (r.ok) d = await r.json(); else { why = r.status + ' ' + (await r.text()).slice(0, 300); } } catch (e) { why = String(e && e.message || e); }
+  if (!d) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון נתוני נפח.<br>פירוט השגיאה (שלח לי אותו): <b dir="ltr" style="display:block;margin-top:6px;word-break:break-all">' + esc(why) + '</b></div>'; return; }
   const GB = 1073741824, LIM_F = GB, LIM_D = 500 * 1048576;
   const pF = d.photos_bytes / LIM_F * 100, pD = d.db_bytes / LIM_D * 100;
   const left = Math.max(0, LIM_F - d.photos_bytes);
