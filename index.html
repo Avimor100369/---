@@ -1626,7 +1626,7 @@ function renderShell(extra = '') {
         </h1>
       </div>
       <div class="greet" id="greet">${greetHtml()}</div>
-      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 25.11-יח · בקשות איפוס 2</span>` : ''}
+      ${session && session.email ? `<span class="user-badge">${esc(session.email)} <span class="role-pill">${esc(ROLE_LABELS[userRole] || userRole)}</span></span><span style="font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:999px;margin-inline-start:8px;white-space:nowrap">גרסה 26.11-א · נפח אחסון</span>` : ''}
       <span class="themeseg"><button type="button" class="btn" id="thL" title="מצב בהיר" aria-label="מצב בהיר">${ic("sun")}</button><button type="button" class="btn" id="thD" title="מצב כהה" aria-label="מצב כהה">${ic("moon")}</button></span>
       <button class="btn" id="rf" title="סנכרון נתונים מהשרת">${ic("refresh")} רענון</button>
       <button class="btn bad" id="lo">${ic("logout")} יציאה</button>
@@ -1641,6 +1641,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tp">${ic("pin")} מיקומים</button>
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
+          ${userRole === 'admin' ? `<button class="btn" id="ts">💾 נפח</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn" id="tu">${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
         </div>
       <div class="side-h">ייצוא</div>
@@ -1706,6 +1707,7 @@ function renderShell(extra = '') {
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { view = 'users'; refresh(); };
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
+  if ($('#ts')) $('#ts').onclick = () => { view = 'storage'; refresh(); };
   $('#e1').onclick = () => exportExcelMonthly(false);
   $('#e2').onclick = exportExcelStyled;
   if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
@@ -1762,6 +1764,7 @@ function refresh() {
   if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
+  if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
 
   if (view !== 'map') {
     mapTok++;
@@ -1773,6 +1776,7 @@ function refresh() {
   else if (view === 'places') renderPlaces(rows);
   else if (view === 'users' && userRole === 'admin') renderUsers();
   else if (view === 'msgs' && userRole === 'admin') renderMsgs();
+  else if (view === 'storage' && userRole === 'admin') renderStorage();
   else if (view === 'gallery') renderGalleryHub(rows);
   else if (view === 'analytics') renderAnalytics(rows);
   else renderList(rows);
@@ -1797,6 +1801,37 @@ async function updateReqBadge(force) {
     const n = r.ok ? (await r.json()).length : 0, el = document.getElementById('tun');
     if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
   } catch (e) {}
+}
+function fmtB(n) { n = Number(n) || 0; return n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
+async function renderStorage() {
+  $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(3) + '</div>';
+  let d = null;
+  try { const r = await api(`${SB}/rest/v1/rpc/admin_storage_stats`, { method: 'POST', body: '{}' }); if (r.ok) d = await r.json(); } catch (e) {}
+  if (!d) { $('#list').innerHTML = '<div class="err">לא ניתן לטעון נתוני נפח. ודא שהרצת ב-Supabase את הקובץ supabase_storage_stats.sql (פעם אחת).</div>'; return; }
+  const GB = 1073741824, LIM_F = GB, LIM_D = 500 * 1048576;
+  const pF = d.photos_bytes / LIM_F * 100, pD = d.db_bytes / LIM_D * 100;
+  const left = Math.max(0, LIM_F - d.photos_bytes);
+  const avg = d.photos ? d.photos_bytes / d.photos : 0;
+  const perRep = d.reports ? d.photos / d.reports : 0;
+  const days = Math.max(1, Math.min(30, d.first_photo ? (Date.now() - new Date(d.first_photo)) / 864e5 : 30));
+  const perDay = d.bytes_30d / days;
+  const estPhotos = avg ? Math.floor(left / avg) : 0;
+  const estReports = perRep ? Math.floor(estPhotos / perRep) : 0;
+  let eta = '—';
+  if (perDay > 0) { const dd = left / perDay; eta = dd > 3650 ? 'יותר מ-10 שנים' : dd >= 365 ? (dd / 365).toFixed(1) + ' שנים' : dd >= 60 ? Math.round(dd / 30) + ' חודשים' : Math.round(dd) + ' ימים'; }
+  const col = p => p >= 90 ? 'var(--bad,#dc2626)' : p >= 70 ? 'var(--warn,#d97706)' : 'var(--ok,#16a34a)';
+  const bar = (p, c) => `<div style="height:14px;background:var(--line);border-radius:8px;overflow:hidden;margin:8px 0"><div style="height:100%;width:${Math.min(100, p).toFixed(1)}%;background:${c}"></div></div>`;
+  const card = (t, body) => `<div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow-sm)"><b>${t}</b>${body}</div>`;
+  const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line)"><span style="color:var(--mut)">${k}</span><b>${v}</b></div>`;
+  const warn = (pF >= 80 || pD >= 80) ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:var(--radius);padding:12px;margin-bottom:14px">⚠️ מתקרבים למגבלת המנוי החינמי – כדאי לשקול שדרוג או ארכוב.</div>` : '';
+  $('#list').innerHTML = warn +
+    card('📷 אחסון תמונות (מגבלה 1 GB)', bar(pF, col(pF)) + `<div><b>${fmtB(d.photos_bytes)}</b> מתוך 1 GB (${pF.toFixed(1)}%) · נשאר <b>${fmtB(left)}</b></div>`
+      + row('מספר תמונות', d.photos.toLocaleString('he-IL')) + row('גודל ממוצע לתמונה', fmtB(avg)) + row('תמונות לדיווח (ממוצע)', perRep.toFixed(1))
+      + row('עוד כמה תמונות ייכנסו', '≈ ' + estPhotos.toLocaleString('he-IL')) + row('עוד כמה דיווחים (בערך)', '≈ ' + estReports.toLocaleString('he-IL'))) +
+    card('🗄️ בסיס נתונים (מגבלה 500 MB)', bar(pD, col(pD)) + `<div><b>${fmtB(d.db_bytes)}</b> מתוך 500 MB (${pD.toFixed(1)}%)</div>`) +
+    card('📈 קצב וצפי', row('דיווחים בסה״כ', d.reports.toLocaleString('he-IL')) + row('דיווחים ב-30 הימים האחרונים', d.reports_30d) + row('תמונות ב-30 הימים האחרונים', d.photos_30d + ' (' + fmtB(d.bytes_30d) + ')')
+      + row('צריכה ממוצעת ליום', fmtB(perDay)) + row('צפי להגעה למגבלה בקצב הזה', '<span style="color:' + col(pF) + '">' + eta + '</span>')) +
+    `<small style="color:var(--mut)">מנוי חינמי: 1 GB קבצים · 500 MB בסיס נתונים · 5 GB תעבורה בחודש · הפרויקט נעצר אחרי שבוע ללא פעילות. ה-PDF נוצר במכשיר ואינו תופס מקום.</small>`;
 }
 async function renderUsers() {
   $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(4) + '</div>';
