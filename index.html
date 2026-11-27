@@ -1086,6 +1086,17 @@ input[type=date] { direction: ltr; text-align: left; }
 input[type=date]::-webkit-datetime-edit { direction: ltr; unicode-bidi: isolate; }
 .nbadge { margin-inline-start: auto; background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
 .side .tabs .btn.pri .nbadge { background: #fff; }
+
+/* מחשבים ניידים / מסכים נמוכים: כפתורי הפעולה בדיווח תמיד גלויים, והסרגל הצדדי דחוס יותר */
+.sheet .actions-footer { position: sticky; bottom: 0; z-index: 5; background: var(--card); box-shadow: 0 -8px 16px -10px rgba(15,23,42,.25); }
+.sheet { max-height: calc(100vh - 40px); }
+@media (max-height: 820px) {
+  .side { padding: 8px 10px; gap: 2px; }
+  .side-h { padding: 6px 10px 2px; }
+  .side .tabs .btn, .side-ex .btn { padding: 6px 10px; font-size: 13px; }
+  .shell main { padding-top: 14px; }
+}
+@media (max-height: 640px) { .side .tabs .btn, .side-ex .btn { padding: 4px 10px; font-size: 12.5px; } }
 </style>
 </head>
 <body>
