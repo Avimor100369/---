@@ -1671,6 +1671,7 @@ function renderShell(extra = '') {
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${true ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
           <button class="btn adm-sub" id="tmfa"${admOpen ? '' : ' hidden'}>🔐 אימות דו-שלבי</button>
+          ${userRole === 'admin' ? `<button class="btn adm-sub" id="tlog"${admOpen ? '' : ' hidden'}>📋 יומן פעולות</button><button class="btn adm-sub" id="tbin"${admOpen ? '' : ' hidden'}>🗑️ סל מחזור</button><button class="btn adm-sub" id="tbk"${admOpen ? '' : ' hidden'}>💾 גיבוי דיווחים (CSV)</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="ts"${admOpen ? '' : ' hidden'}>${ic("folder")} נפח אחסון</button>` : ''}
           ${admPushOk() ? `<button class="btn adm-sub" id="tb"${admOpen ? '' : ' hidden'}>${admPushLabel()}</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="tu"${admOpen ? '' : ' hidden'}>${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
@@ -1738,6 +1739,9 @@ function renderShell(extra = '') {
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { admOpen = true; view = 'users'; refresh(); };
   if ($('#tmfa')) $('#tmfa').onclick = () => { admOpen = true; view = 'mfa'; refresh(); };
+  if ($('#tlog')) $('#tlog').onclick = () => { admOpen = true; view = 'log'; refresh(); };
+  if ($('#tbin')) $('#tbin').onclick = () => { admOpen = true; view = 'bin'; refresh(); };
+  if ($('#tbk')) $('#tbk').onclick = () => backupReports();
   if ($('#tn')) $('#tn').onclick = () => { view = 'msgs'; refresh(); };
   if ($('#ts')) $('#ts').onclick = () => { admOpen = true; view = 'storage'; refresh(); };
   if ($('#tb')) $('#tb').onclick = enableAdminPush;
@@ -1799,11 +1803,13 @@ function refresh() {
   $('#ta').classList.toggle('pri', view === 'analytics');
   if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
   if ($('#tmfa')) $('#tmfa').classList.toggle('pri', view === 'mfa');
+  if ($('#tlog')) $('#tlog').classList.toggle('pri', view === 'log');
+  if ($('#tbin')) $('#tbin').classList.toggle('pri', view === 'bin');
   updateReqBadge(view === 'users');
   if ($('#tn')) $('#tn').classList.toggle('pri', view === 'msgs');
   if ($('#ts')) $('#ts').classList.toggle('pri', view === 'storage');
   if ($('#tmo')) $('#tmo').classList.toggle('pri', view === 'monthly');
-  if ($('#tgrp')) $('#tgrp').classList.toggle('pri', view === 'storage' || view === 'users' || view === 'mfa');
+  if ($('#tgrp')) $('#tgrp').classList.toggle('pri', view === 'storage' || view === 'users' || view === 'mfa' || view === 'log' || view === 'bin');
   if ($('#tt')) { $('#tt').classList.toggle('pri', view === 'todo'); const _n = reports.filter(r => !r.approval_status).length, _e = $('#ttn'); if (_e) { _e.textContent = _n; _e.style.display = _n ? '' : 'none'; } }
 
   if (view !== 'map') {
@@ -1816,6 +1822,8 @@ function refresh() {
   else if (view === 'places') renderPlaces(rows);
   else if (view === 'users' && userRole === 'admin') renderUsers();
   else if (view === 'mfa') renderMfaView();
+  else if (view === 'log' && userRole === 'admin') renderAuditLog();
+  else if (view === 'bin' && userRole === 'admin') renderBin();
   else if (view === 'msgs' && userRole === 'admin') renderMsgs();
   else if (view === 'storage' && userRole === 'admin') renderStorage();
   else if (view === 'todo') renderTodo();
@@ -1991,6 +1999,80 @@ async function renderMfaView() {
       };
     } catch (err) { er.textContent = 'לא ניתן להפעיל: ' + err.message; er.style.display = 'block'; }
   };
+}
+
+
+/* ===== יומן פעולות, סל מחזור וגיבוי (מנהל בלבד) ===== */
+let _binOk = null;
+async function binAvailable() {
+  if (_binOk !== null) return _binOk;
+  try { const r = await api(`${SB}/rest/v1/deleted_reports?select=id&limit=1`); _binOk = r.ok; } catch (e) { _binOk = false; }
+  return _binOk;
+}
+const AUD_SQL_HINT = '<div class="err">הטבלאות עוד לא קיימות. יש להריץ ב-Supabase את הקובץ <b dir="ltr">supabase_audit_recycle.sql</b> (SQL Editor ← הדבקה ← Run).</div>';
+const ACT_LABELS = { delete_report: '🗑️ מחיקת דיווח', restore_report: '♻️ שחזור דיווח', purge_report: '❌ מחיקה סופית מהסל', report_status: '✅ שינוי סטטוס דיווח', role_change: '👤 שינוי תפקיד', delete_user: '🚫 מחיקת משתמש' };
+function actDetails(a) {
+  const d = a.details || {};
+  if (a.action === 'role_change') return `${esc(d.email || '')}: ${esc(ROLE_LABELS[d.from] || d.from || '')} ← ${esc(ROLE_LABELS[d.to] || d.to || '')}`;
+  if (a.action === 'delete_user') return esc(d.email || '');
+  if (a.action === 'report_status') return `${esc(d.project || a.target_id || '')}: ${esc(d.from || '—')} ← ${esc(d.to || '—')}`;
+  return esc([d.project, d.contractor].filter(Boolean).join(' · ') || a.target_id || '');
+}
+async function renderAuditLog() {
+  $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(3) + '</div>';
+  let rows = null;
+  try { const r = await api(`${SB}/rest/v1/audit_log?select=*&order=id.desc&limit=300`); if (r.ok) rows = await r.json(); } catch (e) {}
+  if (!rows) { $('#list').innerHTML = AUD_SQL_HINT; return; }
+  $('#list').innerHTML = `<div class="card" style="padding:16px"><h3 style="margin:0 0 4px">📋 יומן פעולות</h3><div class="msg" style="margin-bottom:10px">300 הפעולות האחרונות. נרשם אוטומטית ע"י המערכת ואי אפשר לערוך או למחוק.</div>` +
+    (rows.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:right"><th style="padding:6px">מתי</th><th>מי</th><th>פעולה</th><th>פרטים</th></tr></thead><tbody>` +
+      rows.map(a => `<tr style="border-top:1px solid var(--line)"><td style="padding:7px 6px;white-space:nowrap">${fdtH(a.at)}</td><td dir="ltr" style="text-align:right">${esc(a.actor_email || '—')}</td><td style="white-space:nowrap">${esc(ACT_LABELS[a.action] || a.action)}</td><td>${actDetails(a)}</td></tr>`).join('') +
+      `</tbody></table></div>` : '<div class="msg">עוד אין פעולות ביומן.</div>') + '</div>';
+}
+async function renderBin() {
+  $('#list').innerHTML = '<div class="sk-wrap">' + '<div class="sk sk-r"></div>'.repeat(3) + '</div>';
+  let rows = null;
+  try { const r = await api(`${SB}/rest/v1/deleted_reports?select=*&order=id.desc&limit=200`); if (r.ok) rows = await r.json(); } catch (e) {}
+  if (!rows) { $('#list').innerHTML = AUD_SQL_HINT; return; }
+  _binOk = true;
+  $('#list').innerHTML = `<div class="card" style="padding:16px"><h3 style="margin:0 0 4px">🗑️ סל מחזור</h3><div class="msg" style="margin-bottom:10px">דיווחים שנמחקו. אפשר לשחזר אותם עם התמונות. "מחיקה סופית" מוחקת גם את התמונות ואי אפשר לבטל אותה.</div>` +
+    (rows.length ? rows.map(x => { const r = x.report || {}; return `<div class="loc" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)">
+      <div style="flex:1;min-width:200px"><b>${esc(r.project || 'ללא שם')}</b> · ${esc(r.city || '')}<br><small style="color:var(--mut)">${esc(r.contractor_name || '')} · ${esc(r.company || '')} · נמחק ${fdtH(x.deleted_at)} ע"י ${esc(x.deleted_by_email || '—')}</small></div>
+      <button class="btn sm pri" data-restore="${x.id}">♻️ שחזור</button>
+      <button class="btn sm bad" data-purge="${x.id}" data-rid="${esc(x.report_id || '')}">מחיקה סופית</button></div>`; }).join('') : '<div class="msg">הסל ריק.</div>') + '</div>';
+  document.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const r = await api(`${SB}/rest/v1/rpc/admin_restore_report`, { method: 'POST', body: JSON.stringify({ p_id: +b.dataset.restore }) });
+    if (!r.ok) { b.disabled = false; showToast('השחזור נכשל: ' + ((await r.text()).slice(0, 120))); return; }
+    showToast('הדיווח שוחזר'); await load(); view = "bin"; refresh();
+  });
+  document.querySelectorAll('[data-purge]').forEach(b => b.onclick = async () => {
+    if (!(await dlg({ title: 'מחיקה סופית', text: 'למחוק סופית את הדיווח והתמונות שלו? אי אפשר יהיה לשחזר.', ok: 'מחק סופית', danger: true }))) return;
+    b.disabled = true;
+    const rid = b.dataset.rid;
+    const r = await api(`${SB}/rest/v1/rpc/admin_purge_deleted`, { method: 'POST', body: JSON.stringify({ p_id: +b.dataset.purge }) });
+    if (!r.ok) { b.disabled = false; showToast('המחיקה נכשלה'); return; }
+    if (rid) { try { const nm = await listPhotos(rid); if (nm.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: nm.map(n => `${rid}/${n}`) }) }); } catch (e) {} }
+    showToast('נמחק סופית'); renderBin();
+  });
+}
+async function backupReports() {
+  showToast('מכין גיבוי…');
+  let all = [];
+  try { const r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=5000`); if (r.ok) all = await r.json(); else { showToast('הגיבוי נכשל'); return; } } catch (e) { showToast('הגיבוי נכשל'); return; }
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const head = ['מזהה', 'תאריך', 'קבלן', 'חברה', 'פרויקט', 'עיר', 'כתובת', 'סטטוס', 'מספר תמונות', 'פרטי עבודה'];
+  const rowsCsv = all.map(r => {
+    let ph = []; try { ph = typeof r.photos === 'string' ? JSON.parse(r.photos) : (r.photos || []); } catch (e) {}
+    const ln = ((r.details && r.details.lines) || []).map(l => (l[0] || '') + ': ' + (l[1] || '')).join(' | ');
+    return [r.report_id, r.date, r.contractor_name, r.company, r.project, r.city, r.address, r.approval_status || '', ph.length, ln];
+  });
+  const csv = '﻿' + [head, ...rowsCsv].map(r => r.map(q).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `backup-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  showToast('הגיבוי נוצר: ' + all.length + ' דיווחים');
 }
 
 async function renderStorage() {
@@ -3430,11 +3512,12 @@ async function openDetail(id) {
       const d = await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
       const gone = d.ok ? await d.json() : [];
       if (!d.ok || !gone.length) { delBtn.disabled = false; disarm(); showToast('המחיקה נכשלה – ייתכן שחסרה הרשאת מחיקה'); return; }
-      if (names.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: names.map(n => `${id}/${n}`) }) }).catch(() => {});
+      const inBin = await binAvailable();   // אם סל המחזור פעיל – התמונות נשארות עד מחיקה סופית (כדי שאפשר יהיה לשחזר)
+      if (!inBin && names.length) await api(`${SB}/storage/v1/object/${BUCKET}`, { method: 'DELETE', body: JSON.stringify({ prefixes: names.map(n => `${id}/${n}`) }) }).catch(() => {});
       reports = reports.filter(x => x.report_id !== id);
       closeModal();
       renderShell();
-      showToast('הדיווח נמחק מהמערכת' + (locTableOk && rr && gpsOf(rr) ? ' · המיקום נשמר' : ''));
+      showToast((inBin ? 'הדיווח הועבר לסל המחזור (אפשר לשחזר)' : 'הדיווח נמחק מהמערכת') + (locTableOk && rr && gpsOf(rr) ? ' · המיקום נשמר' : ''));
     };
   }
 }
@@ -3470,7 +3553,7 @@ let lastRefresh = Date.now();
 async function softRefresh() {
   if (!session || !$('#list') || document.visibilityState !== 'visible') return;
   if ($('#modal') && $('#modal').classList.contains('open')) return;        // חלון דיווח פתוח
-  if (view === 'users' || view === 'map' || view === 'msgs' || view === 'mfa') return;                           // מסכים שלא כדאי להפריע בהם
+  if (view === 'users' || view === 'map' || view === 'msgs' || view === 'mfa' || view === 'log' || view === 'bin') return;                           // מסכים שלא כדאי להפריע בהם
   const a = document.activeElement;
   if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;             // באמצע הקלדה
   try {
