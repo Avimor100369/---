@@ -2839,18 +2839,27 @@ function renderPlaces(rows) {
 async function renderMap(rows) {
   rows = placeRows(rows);
   const tok = ++mapTok;
-  const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g);
+  const uq = (window.mapUnitQ || '').trim().toLowerCase();
+  const unitHit = r => {
+    if (!uq) return true;
+    const u = unitOf(r, null); if (!u) return false;
+    const t = u.text.toLowerCase();
+    return /^\d+$/.test(uq) ? t.split(/[^0-9a-z\u0590-\u05ff-]+/i).some(w => w === uq || w.replace(/^[^\d]*/, '') === uq) : t.includes(uq);
+  };
+  const pts = rows.map(r => ({ r, g: gpsOf(r) })).filter(x => x.g && unitHit(x.r));
   killMaps();
   $('#list').innerHTML = `
     <div class="map-bar">
+      <input id="mapq" type="search" inputmode="text" dir="auto" placeholder="🔎 חיפוש לפי מספר גוב / עמוד" value="${esc(window.mapUnitQ || '')}" style="min-width:210px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--tx);font:inherit">
       <div class="seg"><button type="button" class="${mapMode === 'all' ? 'on' : ''}" data-mm="all">🗺️ מפה כללית</button><button type="button" class="${mapMode === 'cities' ? 'on' : ''}" data-mm="cities">🏙️ לפי ערים</button></div>
       <div class="legend"><span><i style="background:#059669"></i>אושר</span><span><i style="background:#e11d48"></i>לא אושר</span><span><i style="background:#0f4c81"></i>ממתין</span></div>
       <span class="muted">${pts.length} מיקומים</span>
     </div>
     ${mapMode === 'all' ? '<div id="map" class="map-box"></div>' : '<div id="cityMaps"></div>'}
-    ${pts.length ? '' : '<div class="empty">אין דיווחים עם מיקום GPS בסינון הנוכחי.</div>'}`;
+    ${pts.length ? '' : `<div class="empty">${uq ? 'לא נמצא גוב/עמוד שמתאים ל-' + esc(uq) : 'אין דיווחים עם מיקום GPS בסינון הנוכחי.'}</div>`}`;
   $('#list').onclick = e => { const b = e.target.closest('[data-open]'); if (b) openDetail(b.dataset.open); };
   document.querySelectorAll('[data-mm]').forEach(b => b.onclick = () => { mapMode = b.dataset.mm; renderMap(rows); });
+  { const mi = $('#mapq'); let mt; if (mi) mi.oninput = () => { clearTimeout(mt); mt = setTimeout(() => { window.mapUnitQ = mi.value; Promise.resolve(refresh()).then(() => { setTimeout(() => { const n = $('#mapq'); if (n) { n.focus(); const l = n.value.length; try { n.setSelectionRange(l, l); } catch (e) {} } }, 50); }); }, 350); }; }
   try { await ensureLeaflet(); } catch (e) { if (tok === mapTok) $('#list').innerHTML = '<div class="err">טעינת המפה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.</div>'; return; }
   if (tok !== mapTok) return;
 
