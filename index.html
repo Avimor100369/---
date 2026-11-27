@@ -1671,7 +1671,7 @@ function renderShell(extra = '') {
           <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
           ${true ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
           <button class="btn adm-sub" id="tmfa"${admOpen ? '' : ' hidden'}>🔐 אימות דו-שלבי</button>
-          ${userRole === 'admin' ? `<button class="btn adm-sub" id="tlog"${admOpen ? '' : ' hidden'}>📋 יומן פעולות</button><button class="btn adm-sub" id="tbin"${admOpen ? '' : ' hidden'}>🗑️ סל מחזור</button><button class="btn adm-sub" id="tbk"${admOpen ? '' : ' hidden'}>💾 גיבוי דיווחים (CSV)</button>` : ''}
+          ${userRole === 'admin' ? `<button class="btn adm-sub" id="tlog"${admOpen ? '' : ' hidden'}>📋 יומן פעולות</button><button class="btn adm-sub" id="tbin"${admOpen ? '' : ' hidden'}>🗑️ סל מחזור</button><button class="btn adm-sub" id="tbk"${admOpen ? '' : ' hidden'}>💾 גיבוי דיווחים (Excel)</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="ts"${admOpen ? '' : ' hidden'}>${ic("folder")} נפח אחסון</button>` : ''}
           ${admPushOk() ? `<button class="btn adm-sub" id="tb"${admOpen ? '' : ' hidden'}>${admPushLabel()}</button>` : ''}
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="tu"${admOpen ? '' : ' hidden'}>${ic("users")} משתמשים <span class="nbadge" id="tun" style="display:none"></span></button>` : ''}
@@ -2059,19 +2059,9 @@ async function backupReports() {
   showToast('מכין גיבוי…');
   let all = [];
   try { const r = await api(`${SB}/rest/v1/reports?select=*&order=id.desc&limit=5000`); if (r.ok) all = await r.json(); else { showToast('הגיבוי נכשל'); return; } } catch (e) { showToast('הגיבוי נכשל'); return; }
-  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const head = ['מזהה', 'תאריך', 'קבלן', 'חברה', 'פרויקט', 'עיר', 'כתובת', 'סטטוס', 'מספר תמונות', 'פרטי עבודה'];
-  const rowsCsv = all.map(r => {
-    let ph = []; try { ph = typeof r.photos === 'string' ? JSON.parse(r.photos) : (r.photos || []); } catch (e) {}
-    const ln = ((r.details && r.details.lines) || []).map(l => (l[0] || '') + ': ' + (l[1] || '')).join(' | ');
-    return [r.report_id, r.date, r.contractor_name, r.company, r.project, r.city, r.address, r.approval_status || '', ph.length, ln];
-  });
-  const csv = '﻿' + [head, ...rowsCsv].map(r => r.map(q).join(',')).join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `backup-reports-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  try {
+    XLSX.writeFile(buildWorkbook(all, 'גיבוי כל הדיווחים', `${all.length} דיווחים · הופק ב-${new Date().toLocaleDateString('he-IL')}`), `גיבוי-דיווחים-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (e) { showToast('הגיבוי נכשל: ' + ((e && e.message) || e)); return; }
   showToast('הגיבוי נוצר: ' + all.length + ' דיווחים');
 }
 
