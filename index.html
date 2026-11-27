@@ -2046,7 +2046,7 @@ async function renderUsers() {
         <td><input data-fn="${esc(u.id)}" value="${esc(u.full_name || '')}" placeholder="שם להצגה בברכה"></td>
         <td><select data-role="${esc(u.id)}"${u.id === userId ? ' disabled title="לא ניתן לשנות את התפקיד של עצמך"' : ''}>${opts(u.role)}</select></td>
         <td><input data-cn="${esc(u.id)}" value="${esc(u.contractor_name || '')}" placeholder="רק לתפקיד קבלן"></td>
-        <td style="white-space:nowrap"><button class="btn sm pri" data-save="${esc(u.id)}">שמירה</button> <button class="btn sm" data-pw="${esc(u.id)}" data-em="${esc(u.email || '')}" title="קביעת סיסמה חדשה ואימות המשתמש">איפוס סיסמה</button>${u.id !== userId && u.role !== 'admin' ? ` <button class="btn sm" data-del="${esc(u.id)}" data-em="${esc(u.email || '')}" title="מחיקת המשתמש (הדיווחים שלו נשארים)">מחיקה</button>` : ''}</td>
+        <td style="white-space:nowrap"><button class="btn sm pri" data-save="${esc(u.id)}">שמירה</button> <button class="btn sm" data-pw="${esc(u.id)}" data-em="${esc(u.email || '')}" title="קביעת סיסמה חדשה ואימות המשתמש">איפוס סיסמה</button>${u.id !== userId && u.role !== 'admin' ? ` <button class="btn sm bad" style="background:var(--bad);color:#fff;border-color:var(--bad)" data-del="${esc(u.id)}" data-em="${esc(u.email || '')}" title="מחיקת המשתמש (הדיווחים שלו נשארים)">מחיקה</button>` : ''}</td>
       </tr>`).join('')}</tbody>
     </table></div>`;
 
