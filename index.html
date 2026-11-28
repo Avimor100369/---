@@ -396,8 +396,6 @@ header { -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: sat
 .sv-pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; border: 1px solid transparent; }
 .sv-pill.on { background: #dcfce7; color: #166534; border-color: #86efac; }
 .sv-pill.off { background: transparent; color: #94a3b8; border-color: #cbd5e1; font-weight: 600; }
-.sv-pill.tg { cursor: pointer; }
-.sv-pill.tg:hover { filter: brightness(.95); }
 .v-done { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok, #16a34a); color: #fff; font-size: 13px; font-weight: 900; line-height: 1; flex: none; }
 .nc-chip { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg); padding: 2px 8px; border-radius: 6px; }
 .nc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
@@ -1355,17 +1353,26 @@ async function apprSet(id, status, ev) {
 const SAVED_KEY = 'dash_saved_reports';
 const savedLocal = () => { try { return new Set(JSON.parse(localStorage.getItem(SAVED_KEY) || '[]')); } catch (e) { return new Set(); } };
 const isSaved = r => !!r.exported_at || savedLocal().has(r.report_id);
+const savedBy = () => (typeof userName === 'string' && userName) || (session && session.email) || null;
+async function patchSaved(r, body) {
+  const url = `${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`;
+  try {
+    let x = await api(url, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(body) });
+    if (!x.ok && 'exported_by' in body) { const { exported_by, ...rest } = body; x = await api(url, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rest) }); }   // העמודה exported_by עוד לא קיימת – שומרים לפחות את התאריך
+  } catch (e) {}
+}
 async function markSaved(r) {
-  r.exported_at = r.exported_at || new Date().toISOString();
+  if (!r.exported_at) { r.exported_at = new Date().toISOString(); r.exported_by = savedBy(); }
   try { const st = savedLocal(); st.add(r.report_id); localStorage.setItem(SAVED_KEY, JSON.stringify([...st].slice(-3000))); } catch (e) {}
-  // שמירה גם בשרת (מסתנכרן בין מכשירים) – רק אם נוספה העמודה exported_at; אחרת נשאר במכשיר הזה
-  try { await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ exported_at: r.exported_at }) }); } catch (e) {}
+  await patchSaved(r, { exported_at: r.exported_at, exported_by: r.exported_by || null });
 }
 async function setSavedFlag(r, on) {
   r.exported_at = on ? (r.exported_at || new Date().toISOString()) : null;
+  r.exported_by = on ? (r.exported_by || savedBy()) : null;
   try { const st = savedLocal(); on ? st.add(r.report_id) : st.delete(r.report_id); localStorage.setItem(SAVED_KEY, JSON.stringify([...st].slice(-3000))); } catch (e) {}
-  try { await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ exported_at: r.exported_at }) }); } catch (e) {}
+  await patchSaved(r, { exported_at: r.exported_at, exported_by: r.exported_by });
 }
+const savedInfo = r => !isSaved(r) ? '' : [r.exported_by ? 'ע"י ' + r.exported_by : '', r.exported_at ? new Date(r.exported_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''].filter(Boolean).join(' · ');
 function ncText(g) { return g ? `${(+g.latitude).toFixed(6)}, ${(+g.longitude).toFixed(6)}` : ''; }
 function copyNC(t) { navigator.clipboard.writeText(t).then(() => showToast('הנ.צ הועתק: ' + t)).catch(() => { prompt('העתק נ.צ:', t); }); }
 const UNIT_WORD = '(גוב|גובים|עמוד|עמודים|manhole|pole)';
@@ -2219,19 +2226,9 @@ async function renderUsers() {
 /* ===== שורת דיווח קומפקטית + לחצני פעולה בצד, ובחירה מרובה ===== */
 let sel = new Set();
 const savePill = r => {
-  const on = isSaved(r), tg = canApprove();
-  return `<span class="sv-pill ${on ? 'on' : 'off'}${tg ? ' tg' : ''}" title="${on ? 'נשמר בשרת החברה' + (r.exported_at ? ' · ' + new Date(r.exported_at).toLocaleDateString('he-IL') : '') : 'טרם נשמר בשרת החברה'}${tg ? ' – לחיצה משנה את הסימון (יתבקש אישור)' : ''}"${tg ? ` onclick="toggleSavedQuick('${esc(r.report_id)}',event)"` : ''}>${on ? '💾 נשמר בשרת' : 'טרם נשמר'}</span>`;
+  const on = isSaved(r), info = savedInfo(r);
+  return `<span class="sv-pill ${on ? 'on' : 'off'}" title="${on ? 'נשמר בשרת החברה ' + esc(info) : 'טרם נשמר בשרת החברה'}">${on ? '💾 נשמר' + (info ? ' · ' + esc(info) : '') : 'טרם נשמר'}</span>`;
 };
-async function toggleSavedQuick(id, e) {
-  if (e) { e.stopPropagation(); e.preventDefault(); }
-  const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
-  const on = !isSaved(r);
-  const nm = [r.project, r.city].filter(Boolean).join(' · ') || r.report_id;
-  if (!(await dlg({ title: on ? 'לסמן כנשמר בשרת החברה?' : 'לבטל את הסימון "נשמר"?', text: (on ? 'הדיווח יסומן כנשמר בשרת החברה, ולא יופיע יותר ברשימת "טרם נשמרו".\n' : 'הדיווח יחזור לרשימת "טרם נשמרו".\n') + nm, ok: on ? 'כן, נשמר' : 'בטל סימון' }))) return;
-  await setSavedFlag(r, on);
-  showToast(on ? 'סומן כנשמר בשרת החברה' : 'הסימון בוטל');
-  refresh();
-}
 const sideActions = r => {
   const id = esc(r.report_id), g = gpsOf(r);
   return `<div class="row-side" onclick="event.stopPropagation()">
@@ -2266,7 +2263,7 @@ function loadPdfLibs() { return Promise.all([loadLib(H2C_URL, () => window.html2
 function preloadPdfLibs() { loadPdfLibs().catch(() => {}); }
 function metaKeysOf(r) {
   const priorityKeys = ['date', 'company', 'contractor_name', 'project', 'city', 'address', 'created_at'];
-  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
+  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', 'exported_at', 'exported_by', 'approval_status', 'approval_note', 'approved_by', 'approved_at', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
   return [...priorityKeys.filter(k => k in r), ...extraKeys];
 }
 function buildReportSheet(r, items, srcOf = u => u) {
@@ -2993,7 +2990,7 @@ function buildWorkbook(rows, title, subtitle) {
 
   // שדות נוספים (מעבר לבסיס) – נאספים אוטומטית, בלי תמונות
   const baseKeys = ['report_id', 'date', 'company', 'contractor_name', 'project', 'city', 'address'];
-  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
+  const skip = new Set(['id', 'photos', 'details', 'created_at', 'updated_at', 'exported_at', 'exported_by', 'approval_status', 'approval_note', 'approved_by', 'approved_at', 'lat', 'lon', 'unit_kind', 'unit_number', ...baseKeys]);
   const isPhotoKey = k => /תמונ|photo|image|img|pic/i.test(k);
   const extraKeys = [];
   const addExtra = k => { if (!isPhotoKey(k) && !extraKeys.includes(k) && !unitKeyOk(k.replace(/^details\./, ''))) extraKeys.push(k); };
@@ -3363,7 +3360,7 @@ async function openDetail(id) {
   if (!r) return;
 
   const priorityKeys = ['date', 'company', 'contractor_name', 'project', 'city', 'address', 'created_at'];
-  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', 'exported_at', 'approval_status', 'approval_note', 'approved_by', 'approved_at', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
+  const extraKeys = Object.keys(r).filter(k => !['id', 'photos', 'details', 'report_id', 'exported_at', 'exported_by', 'approval_status', 'approval_note', 'approved_by', 'approved_at', ...priorityKeys].includes(k) && r[k] != null && r[k] !== '' && !((k === 'lat' || k === 'lon') && gpsOf(r)));
   const allMetaKeys = [...priorityKeys.filter(k => k in r), ...extraKeys];
 
   const lines = linesOf(r);
@@ -3440,6 +3437,7 @@ async function openDetail(id) {
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
         <button class="btn" id="sv">${isSaved(r) ? '✅ נשמר – שמירה בשם שוב' : '💾 שמירה בשם (PDF)…'}</button>
         ${canApprove() ? `<button class="btn" id="sm">${isSaved(r) ? '↩️ בטל סימון "נשמר בשרת"' : '☑️ סמן כנשמר בשרת החברה'}</button>` : ''}
+        ${isSaved(r) ? `<span style="align-self:center;font-size:12.5px;color:#166534;font-weight:700">💾 נשמר בשרת ${esc(savedInfo(r))}</span>` : ''}
         <button class="btn" id="cl">סגירה</button>
       </div>
       ${userRole === 'admin' ? '<button class="btn bad" id="del">🗑️ מחיקת דיווח</button>' : ''}
@@ -3521,7 +3519,7 @@ async function openDetail(id) {
 
   // שמירה בשם: חלון בחירת הנתיב נפתח מיד בלחיצה (לפני כל עיבוד), וההכנה רצה אחריו
   $('#sv').onclick = () => { const btn = $('#sv'); savePdfFor(id, { btn, label: btn.textContent }); };
-  if ($('#sm')) $('#sm').onclick = async () => { const on = !isSaved(r); await setSavedFlag(r, on); showToast(on ? 'סומן כנשמר בשרת החברה' : 'הסימון בוטל'); closeModal(); refresh(); };
+  if ($('#sm')) $('#sm').onclick = async () => { const on = !isSaved(r); if (!on && !(await dlg({ title: 'לבטל את הסימון "נשמר בשרת"?', text: 'הדיווח יחזור לרשימת "טרם נשמרו".', ok: 'בטל סימון' }))) return; await setSavedFlag(r, on); showToast(on ? 'סומן כנשמר בשרת החברה' : 'הסימון בוטל'); closeModal(); refresh(); };
 
   // מחיקה: לחיצה ראשונה הופכת את הכפתור ל"מחק? בטוח", לחיצה שנייה על אותו כפתור מוחקת
   if ($('#del')) {
