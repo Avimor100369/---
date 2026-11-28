@@ -2220,12 +2220,14 @@ async function renderUsers() {
 let sel = new Set();
 const savePill = r => {
   const on = isSaved(r), tg = canApprove();
-  return `<span class="sv-pill ${on ? 'on' : 'off'}${tg ? ' tg' : ''}" title="${on ? 'נשמר בשרת החברה' : 'טרם נשמר בשרת החברה'}${tg ? ' – לחיצה משנה את הסימון' : ''}"${tg ? ` onclick="toggleSavedQuick('${esc(r.report_id)}',event)"` : ''}>${on ? '💾 נשמר בשרת' : 'טרם נשמר'}</span>`;
+  return `<span class="sv-pill ${on ? 'on' : 'off'}${tg ? ' tg' : ''}" title="${on ? 'נשמר בשרת החברה' + (r.exported_at ? ' · ' + new Date(r.exported_at).toLocaleDateString('he-IL') : '') : 'טרם נשמר בשרת החברה'}${tg ? ' – לחיצה משנה את הסימון (יתבקש אישור)' : ''}"${tg ? ` onclick="toggleSavedQuick('${esc(r.report_id)}',event)"` : ''}>${on ? '💾 נשמר בשרת' : 'טרם נשמר'}</span>`;
 };
 async function toggleSavedQuick(id, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const r = reports.find(x => x.report_id === id); if (!r || !canApprove()) return;
   const on = !isSaved(r);
+  const nm = [r.project, r.city].filter(Boolean).join(' · ') || r.report_id;
+  if (!(await dlg({ title: on ? 'לסמן כנשמר בשרת החברה?' : 'לבטל את הסימון "נשמר"?', text: (on ? 'הדיווח יסומן כנשמר בשרת החברה, ולא יופיע יותר ברשימת "טרם נשמרו".\n' : 'הדיווח יחזור לרשימת "טרם נשמרו".\n') + nm, ok: on ? 'כן, נשמר' : 'בטל סימון' }))) return;
   await setSavedFlag(r, on);
   showToast(on ? 'סומן כנשמר בשרת החברה' : 'הסימון בוטל');
   refresh();
