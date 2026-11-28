@@ -849,7 +849,7 @@ details.fold.sub > summary { padding: 11px 14px; font-size: 14.5px; }
 .sel-cb input { width: 18px; height: 18px; accent-color: #0284c7; cursor: pointer; }
 .row.sel-on { border-color: #0284c7; background: linear-gradient(0deg, rgba(2,132,199,.06), rgba(2,132,199,.06)), var(--card); }
 .row-side { display: flex; flex-direction: column; gap: 7px; width: 250px; padding-inline-start: 14px; border-inline-start: 1px dashed var(--line); }
-.side-top { display: flex; align-items: center; gap: 8px; }
+.side-top { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px 8px; max-width: 100%; }
 .side-appr { display: flex; gap: 6px; }
 .side-appr .appr-btn { flex: 1; padding: 6px 8px; }
 .side-appr .appr-btn:last-child { flex: none; }
@@ -1685,11 +1685,10 @@ function renderShell(extra = '') {
           <button class="btn" id="tw">${ic("clock")} ממתינים לאישור <span class="nbadge" id="twn"></span></button>
           <button class="btn" id="tns">💾 טרם נשמרו בשרת <span class="nbadge" id="tnsn"></span></button>
           <button class="btn" id="tmo">${ic("file")} סיכום חודשי</button>
-          <button class="btn" id="tm">${ic("map")} מפת עבודות</button>
+          <button class="btn" id="tm">${ic("map")} מפה ומיקומים</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
           <button class="btn" id="tg">${ic("image")} גלריית תמונות</button>
-          <button class="btn" id="tp">${ic("pin")} מיקומים</button>
-          <button class="btn" id="ta">${ic("chart")} סיכום ובקרה</button>
+          <button class="btn" id="ta">${ic("chart")} ניתוח וסטטיסטיקה</button>
           ${true ? `<button class="btn" id="tgrp">${ic("wrench")} ניהול <span class="nbadge" id="tgn" style="display:none"></span> <span id="tgar" style="margin-inline-start:auto;font-size:11px">${admOpen ? '▲' : '▼'}</span></button>` : ''}
           <button class="btn adm-sub" id="tmfa"${admOpen ? '' : ' hidden'}>🔐 אימות דו-שלבי</button>
           ${userRole === 'admin' ? `<button class="btn adm-sub" id="tlog"${admOpen ? '' : ' hidden'}>📋 יומן פעולות</button><button class="btn adm-sub" id="tbin"${admOpen ? '' : ' hidden'}>🗑️ סל מחזור</button><button class="btn adm-sub" id="tbk"${admOpen ? '' : ' hidden'}>💾 גיבוי דיווחים (Excel)</button>` : ''}
@@ -1699,9 +1698,8 @@ function renderShell(extra = '') {
         </div>
       <div class="side-h">ייצוא</div>
       <div class="side-ex">
-        <button class="btn ok" id="e1" title="קובץ לחודש הנוכחי, למשל: נובמבר 2026">${ic("download")} ייצוא אקסל חודשי</button>
-        <button class="btn" id="e2" title="ייצוא לפי הסינון והחיפוש הנוכחיים">${ic("file")} לפי הסינון</button>
-        ${window.showDirectoryPicker ? `<button class="btn" id="e3" title="בחירת תיקיית השמירה של קבצי האקסל">${ic("folder")} תיקיית שמירה</button>` : ''}
+        <button class="btn ok" id="e2" title="ייצוא לפי הסינון והחיפוש הנוכחיים. אקסל חודשי להתחשבנות נמצא במסך 'סיכום חודשי'">${ic("download")} ייצוא אקסל</button>
+        ${window.showDirectoryPicker ? `<button class="btn" id="e3" title="שמירת האקסל החודשי ישירות לתיקייה שתבחר">${ic("folder")} אקסל חודשי לתיקייה</button>` : ''}
       </div>
     </aside>
     <main>
@@ -1757,7 +1755,6 @@ function renderShell(extra = '') {
   $('#tns').onclick = () => { view = 'list'; fSaved = fSaved === 'no' ? '' : 'no'; refresh(); };
   $('#tg').onclick = () => { view = 'gallery'; refresh(); };
   $('#tm').onclick = () => { view = 'map'; refresh(); };
-  $('#tp').onclick = () => { view = 'places'; refresh(); };
   $('#ta').onclick = () => { view = 'analytics'; refresh(); };
   if ($('#tu')) $('#tu').onclick = () => { admOpen = true; view = 'users'; refresh(); };
   if ($('#tmfa')) $('#tmfa').onclick = () => { admOpen = true; view = 'mfa'; refresh(); };
@@ -1770,7 +1767,6 @@ function renderShell(extra = '') {
   if ($('#tt')) $('#tt').onclick = () => { view = 'todo'; refresh(); };
   if ($('#tmo')) $('#tmo').onclick = () => { view = 'monthly'; refresh(); };
   if ($('#tgrp')) $('#tgrp').onclick = () => { admOpen = !admOpen; document.querySelectorAll('.adm-sub').forEach(b => { b.hidden = !admOpen; }); const ar = document.getElementById('tgar'); if (ar) ar.textContent = admOpen ? '▲' : '▼'; };
-  $('#e1').onclick = () => exportExcelMonthly(false);
   $('#e2').onclick = exportExcelStyled;
   if ($('#e3')) $('#e3').onclick = () => exportExcelMonthly(true);
   refresh();
@@ -1821,8 +1817,7 @@ function refresh() {
   { const nsN = reports.filter(r => !isSaved(r)).length, tn = $('#tnsn'); if (tn) { tn.textContent = nsN; tn.style.display = nsN ? '' : 'none'; } $('#tns').classList.toggle('pri', view === 'list' && fSaved === 'no'); }
   $('#tl').classList.toggle('pri', view === 'list' && fStatus !== 'pending' && fSaved !== 'no');
   $('#tg').classList.toggle('pri', view === 'gallery');
-  $('#tm').classList.toggle('pri', view === 'map');
-  $('#tp').classList.toggle('pri', view === 'places');
+  $('#tm').classList.toggle('pri', view === 'map' || view === 'places');
   $('#ta').classList.toggle('pri', view === 'analytics');
   if ($('#tu')) $('#tu').classList.toggle('pri', view === 'users');
   if ($('#tmfa')) $('#tmfa').classList.toggle('pri', view === 'mfa');
@@ -2227,7 +2222,7 @@ async function renderUsers() {
 let sel = new Set();
 const savePill = r => {
   const on = isSaved(r), info = savedInfo(r);
-  return `<span class="sv-pill ${on ? 'on' : 'off'}" title="${on ? 'נשמר בשרת החברה ' + esc(info) : 'טרם נשמר בשרת החברה'}">${on ? '💾 נשמר' + (info ? ' · ' + esc(info) : '') : 'טרם נשמר'}</span>`;
+  return `<span class="sv-pill ${on ? 'on' : 'off'}" title="${on ? 'נשמר בשרת החברה ' + esc(info) : 'טרם נשמר בשרת החברה'}">${on ? '💾 נשמר' + (r.exported_by ? ' · ' + esc(r.exported_by) : '') + (r.exported_at ? ' · ' + esc(new Date(r.exported_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })) : '') : 'טרם נשמר'}</span>`;
 };
 const sideActions = r => {
   const id = esc(r.report_id), g = gpsOf(r);
@@ -2845,7 +2840,8 @@ function renderPlaces(rows) {
   };
   $('#list').innerHTML = `
     <div class="map-bar">
-      <b style="font-size:16px">📍 מיקומים – לפי ערים ופרויקטים</b>
+      <div class="seg"><button type="button" data-tomap="1">🗺️ מפה</button><button type="button" class="on">📍 רשימת מיקומים</button></div>
+      <b style="font-size:16px">לפי ערים ופרויקטים</b>
       <span class="muted">${pts.length} מיקומים · ${cities.length} ערים</span>
       <span style="margin-inline-start:auto;display:flex;gap:8px"><button class="btn ok" id="plSave" type="button" title="שמירת כל המיקומים בתיקייה: עיר ← פרויקט">💾 שמירה בשם (תיקייה)</button><button class="btn" id="plOpen" type="button">פתח הכל</button><button class="btn" id="plClose" type="button">סגור הכל</button></span>
     </div>
@@ -2859,6 +2855,7 @@ function renderPlaces(rows) {
           </details>`).join('')}</div>
       </details>`).join('')}</div>` : '<div class="empty">אין דיווחים עם מיקום GPS בסינון הנוכחי.</div>'}`;
   $('#plSave').onclick = () => savePlacesFolder(rows);
+  document.querySelectorAll('[data-tomap]').forEach(b => b.onclick = () => { view = 'map'; mapMode = 'all'; refresh(); });
   $('#plOpen').onclick = () => document.querySelectorAll('.places details').forEach(d => { d.open = true; });
   $('#plClose').onclick = () => document.querySelectorAll('.places details').forEach(d => { d.open = false; });
 }
@@ -2878,7 +2875,7 @@ async function renderMap(rows) {
   $('#list').innerHTML = `
     <div class="map-bar">
       <input id="mapq" type="search" inputmode="text" dir="auto" placeholder="🔎 חיפוש לפי מספר גוב / עמוד" value="${esc(window.mapUnitQ || '')}" style="min-width:210px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--tx);font:inherit">
-      <div class="seg"><button type="button" class="${mapMode === 'all' ? 'on' : ''}" data-mm="all">🗺️ מפה כללית</button><button type="button" class="${mapMode === 'cities' ? 'on' : ''}" data-mm="cities">🏙️ לפי ערים</button></div>
+      <div class="seg"><button type="button" class="${mapMode === 'all' ? 'on' : ''}" data-mm="all">🗺️ מפה כללית</button><button type="button" class="${mapMode === 'cities' ? 'on' : ''}" data-mm="cities">🏙️ לפי ערים</button><button type="button" data-topl="1">📍 רשימת מיקומים</button></div>
       <div class="legend"><span><i style="background:#059669"></i>אושר</span><span><i style="background:#e11d48"></i>לא אושר</span><span><i style="background:#0f4c81"></i>ממתין</span></div>
       <span class="muted">${pts.length} מיקומים</span>
     </div>
@@ -2886,6 +2883,7 @@ async function renderMap(rows) {
     ${pts.length ? '' : `<div class="empty">${uq ? 'לא נמצא גוב/עמוד שמתאים ל-' + esc(uq) : 'אין דיווחים עם מיקום GPS בסינון הנוכחי.'}</div>`}`;
   $('#list').onclick = e => { const b = e.target.closest('[data-open]'); if (b) openDetail(b.dataset.open); };
   document.querySelectorAll('[data-mm]').forEach(b => b.onclick = () => { mapMode = b.dataset.mm; renderMap(rows); });
+  document.querySelectorAll('[data-topl]').forEach(b => b.onclick = () => { view = 'places'; refresh(); });
   { const mi = $('#mapq'); let mt; if (mi) mi.oninput = () => { clearTimeout(mt); mt = setTimeout(() => { window.mapUnitQ = mi.value; Promise.resolve(refresh()).then(() => { setTimeout(() => { const n = $('#mapq'); if (n) { n.focus(); const l = n.value.length; try { n.setSelectionRange(l, l); } catch (e) {} } }, 50); }); }, 350); }; }
   try { await ensureLeaflet(); } catch (e) { if (tok === mapTok) $('#list').innerHTML = '<div class="err">טעינת המפה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.</div>'; return; }
   if (tok !== mapTok) return;
