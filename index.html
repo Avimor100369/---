@@ -1302,7 +1302,7 @@ ${esc(SQL_HINT)}</div>`);
 }
 
 let fCompany = '', fContractor = '', fProject = '', fCity = '', fFrom = '', fTo = '';
-var fStatus = '';
+var fStatus = '', fSaved = '';
 var admOpen = false;
 let view = 'list', galleryGroupBy = 'company_project', mapObj = null, mapTok = 0, leafletP = null, mapMode = 'all', cityMaps = [];
 
@@ -1356,6 +1356,11 @@ async function markSaved(r) {
   // שמירה גם בשרת (מסתנכרן בין מכשירים) – רק אם נוספה העמודה exported_at; אחרת נשאר במכשיר הזה
   try { await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ exported_at: r.exported_at }) }); } catch (e) {}
 }
+async function setSavedFlag(r, on) {
+  r.exported_at = on ? (r.exported_at || new Date().toISOString()) : null;
+  try { const st = savedLocal(); on ? st.add(r.report_id) : st.delete(r.report_id); localStorage.setItem(SAVED_KEY, JSON.stringify([...st].slice(-3000))); } catch (e) {}
+  try { await api(`${SB}/rest/v1/reports?report_id=eq.${encodeURIComponent(r.report_id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ exported_at: r.exported_at }) }); } catch (e) {}
+}
 function ncText(g) { return g ? `${(+g.latitude).toFixed(6)}, ${(+g.longitude).toFixed(6)}` : ''; }
 function copyNC(t) { navigator.clipboard.writeText(t).then(() => showToast('הנ.צ הועתק: ' + t)).catch(() => { prompt('העתק נ.צ:', t); }); }
 const UNIT_WORD = '(גוב|גובים|עמוד|עמודים|manhole|pole)';
@@ -1400,6 +1405,7 @@ function matchF(r) {
       (!fProject || r.project === fProject) &&
       (!fCity || r.city === fCity) &&
       (!fStatus || (fStatus === 'pending' ? !r.approval_status : r.approval_status === fStatus)) &&
+      (!fSaved || (fSaved === 'no' ? !isSaved(r) : isSaved(r))) &&
       (!fFrom || (r.date && r.date >= fFrom)) &&
       (!fTo || (r.date && r.date <= fTo));
   }
@@ -1665,6 +1671,7 @@ function renderShell(extra = '') {
           <button class="btn" id="tt">${ic("check")} טיפול <span class="nbadge" id="ttn" style="display:none"></span></button>
           <button class="btn" id="tl">${ic("list")} רשימת דיווחים</button>
           <button class="btn" id="tw">${ic("clock")} ממתינים לאישור <span class="nbadge" id="twn"></span></button>
+          <button class="btn" id="tns">💾 טרם נשמרו בשרת <span class="nbadge" id="tnsn"></span></button>
           <button class="btn" id="tmo">${ic("file")} סיכום חודשי</button>
           <button class="btn" id="tm">${ic("map")} מפת עבודות</button>
           ${userRole === 'admin' ? `<button class="btn" id="tn">${ic("bell")} הודעות</button>` : ''}
@@ -1732,9 +1739,10 @@ function renderShell(extra = '') {
   $('#qd-today').onclick = () => setQuickDate(0);
   $('#qd-7').onclick = () => setQuickDate(7);
   $('#qd-30').onclick = () => setQuickDate(30);
-  $('#fx').onclick = () => { query = ''; fCompany = fProject = fContractor = fCity = fFrom = fTo = fStatus = ''; renderShell(extra); };
-  $('#tl').onclick = () => { view = 'list'; fStatus = ''; refresh(); };
+  $('#fx').onclick = () => { query = ''; fCompany = fProject = fContractor = fCity = fFrom = fTo = fStatus = fSaved = ''; renderShell(extra); };
+  $('#tl').onclick = () => { view = 'list'; fStatus = ''; fSaved = ''; refresh(); };
   $('#tw').onclick = () => { view = 'list'; fStatus = fStatus === 'pending' ? '' : 'pending'; refresh(); };
+  $('#tns').onclick = () => { view = 'list'; fSaved = fSaved === 'no' ? '' : 'no'; refresh(); };
   $('#tg').onclick = () => { view = 'gallery'; refresh(); };
   $('#tm').onclick = () => { view = 'map'; refresh(); };
   $('#tp').onclick = () => { view = 'places'; refresh(); };
@@ -1789,7 +1797,7 @@ function refresh() {
         <small>${gpsPct}% כיסוי מיקום מאומת</small></div>
     </div>`;
 
-  const chipDefs = [['חיפוש', query, () => { query = ''; }], ['חברה', fCompany, () => { fCompany = ''; }], ['פרויקט', fProject, () => { fProject = ''; }], ['קבלן', fContractor, () => { fContractor = ''; }], ['עיר', fCity, () => { fCity = ''; }], ['מתאריך', fFrom, () => { fFrom = ''; }], ['עד', fTo, () => { fTo = ''; }], ['סטטוס', fStatus === 'pending' ? 'ממתינים לאישור' : fStatus, () => { fStatus = ''; }]].filter(c => c[1]);
+  const chipDefs = [['חיפוש', query, () => { query = ''; }], ['חברה', fCompany, () => { fCompany = ''; }], ['פרויקט', fProject, () => { fProject = ''; }], ['קבלן', fContractor, () => { fContractor = ''; }], ['עיר', fCity, () => { fCity = ''; }], ['מתאריך', fFrom, () => { fFrom = ''; }], ['עד', fTo, () => { fTo = ''; }], ['סטטוס', fStatus === 'pending' ? 'ממתינים לאישור' : fStatus, () => { fStatus = ''; }], ['שמירה בשרת', fSaved === 'no' ? 'טרם נשמרו' : fSaved === 'yes' ? 'נשמרו' : '', () => { fSaved = ''; }]].filter(c => c[1]);
   const chipBox = $('#chips');
   if (chipBox) {
     chipBox.innerHTML = chipDefs.map((c, k) => `<span class="fchip"><b>${c[0]}:</b> ${esc(c[1])}<button type="button" data-chip="${k}" aria-label="הסרת סינון">${ic('x', 12)}</button></span>`).join('');
@@ -1798,7 +1806,8 @@ function refresh() {
   const pendN = reports.filter(r => !r.approval_status).length, twn = $('#twn');
   if (twn) { twn.textContent = pendN; twn.style.display = pendN ? '' : 'none'; }
   $('#tw').classList.toggle('pri', view === 'list' && fStatus === 'pending');
-  $('#tl').classList.toggle('pri', view === 'list' && fStatus !== 'pending');
+  { const nsN = reports.filter(r => !isSaved(r)).length, tn = $('#tnsn'); if (tn) { tn.textContent = nsN; tn.style.display = nsN ? '' : 'none'; } $('#tns').classList.toggle('pri', view === 'list' && fSaved === 'no'); }
+  $('#tl').classList.toggle('pri', view === 'list' && fStatus !== 'pending' && fSaved !== 'no');
   $('#tg').classList.toggle('pri', view === 'gallery');
   $('#tm').classList.toggle('pri', view === 'map');
   $('#tp').classList.toggle('pri', view === 'places');
@@ -1864,7 +1873,7 @@ function pDate(v) {
   return null;
 }
 function goList(o) {
-  fCompany = fProject = fCity = fFrom = fTo = fContractor = fStatus = '';
+  fCompany = fProject = fCity = fFrom = fTo = fContractor = fStatus = fSaved = '';
   if (o && o.c) fContractor = o.c;
   if (o && o.st) fStatus = o.st;
   view = 'list'; renderShell();
@@ -2207,7 +2216,7 @@ let sel = new Set();
 const sideActions = r => {
   const id = esc(r.report_id), g = gpsOf(r);
   return `<div class="row-side" onclick="event.stopPropagation()">
-    <div class="side-top">${apprBadge(r)}${isSaved(r) ? '<span class="v-done" title="הדוח נשמר בשם">✓</span>' : ''}</div>
+    <div class="side-top">${apprBadge(r)}${isSaved(r) ? '<span class="v-done" title="נשמר בשרת / נשמר בשם">✓</span>' : ''}</div>
     ${canApprove() ? `<div class="side-appr">
       <button type="button" class="appr-btn ok" onclick="apprSet('${id}','approved',event)">✓ אשר</button>
       <button type="button" class="appr-btn bad" onclick="apprSet('${id}','rejected',event)">✕ לא אשר</button>
@@ -3411,6 +3420,7 @@ async function openDetail(id) {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn pri" id="pr">🖨️ הפקת PDF / הדפסה נקייה</button>
         <button class="btn" id="sv">${isSaved(r) ? '✅ נשמר – שמירה בשם שוב' : '💾 שמירה בשם (PDF)…'}</button>
+        ${canApprove() ? `<button class="btn" id="sm">${isSaved(r) ? '↩️ בטל סימון "נשמר בשרת"' : '☑️ סמן כנשמר בשרת החברה'}</button>` : ''}
         <button class="btn" id="cl">סגירה</button>
       </div>
       ${userRole === 'admin' ? '<button class="btn bad" id="del">🗑️ מחיקת דיווח</button>' : ''}
@@ -3492,6 +3502,7 @@ async function openDetail(id) {
 
   // שמירה בשם: חלון בחירת הנתיב נפתח מיד בלחיצה (לפני כל עיבוד), וההכנה רצה אחריו
   $('#sv').onclick = () => { const btn = $('#sv'); savePdfFor(id, { btn, label: btn.textContent }); };
+  if ($('#sm')) $('#sm').onclick = async () => { const on = !isSaved(r); await setSavedFlag(r, on); showToast(on ? 'סומן כנשמר בשרת החברה' : 'הסימון בוטל'); closeModal(); refresh(); };
 
   // מחיקה: לחיצה ראשונה הופכת את הכפתור ל"מחק? בטוח", לחיצה שנייה על אותו כפתור מוחקת
   if ($('#del')) {
@@ -3500,7 +3511,7 @@ async function openDetail(id) {
     const disarm = () => { armed = false; delBtn.innerHTML = delLabel; delBtn.classList.remove('armed'); };
     delBtn.onclick = async () => {
       if (!armed) {
-        armed = true; delBtn.classList.add('armed'); delBtn.innerHTML = '⚠️ מחק? בטוח';
+        armed = true; delBtn.classList.add('armed'); delBtn.innerHTML = isSaved(r) ? '⚠️ מחק? בטוח' : '⚠️ טרם נשמר בשרת! למחוק?';
         armTimer = setTimeout(disarm, 4000);
         return;
       }
